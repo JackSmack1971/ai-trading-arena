@@ -1,13 +1,43 @@
-# Claude local overrides
+# ── Claude / local overrides ──────────────────────────────────────────────────
 CLAUDE.local.md
 .claude/settings.local.json
 .claude/worktrees/*
 !.claude/worktrees/.gitignore
 
-# Secrets
+# ── Secrets ───────────────────────────────────────────────────────────────────
 .env
 .env.*
+!.env.example
 *.pem
 *.key
 *credentials*
 *service-account*
+
+# ── Node / pnpm ───────────────────────────────────────────────────────────────
+node_modules/
+.pnpm-store/
+
+# ── Build outputs ─────────────────────────────────────────────────────────────
+dist/
+build/
+*.tsbuildinfo
+out/
+
+# ── SQLite data ───────────────────────────────────────────────────────────────
+data/
+*.db
+*.db-wal
+*.db-shm
+
+# ── Test / coverage ───────────────────────────────────────────────────────────
+coverage/
+.vitest-results/
+playwright-report/
+test-results/
+
+# ── OS / editor ───────────────────────────────────────────────────────────────
+.DS_Store
+Thumbs.db
+*.swp
+.idea/
+.vscode/settings.json

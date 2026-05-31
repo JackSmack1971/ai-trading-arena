@@ -1,0 +1,18 @@
+{
+  "$schema": "https://json.schemastore.org/tsconfig",
+  "extends": "./tsconfig.base.json",
+  "include": [],
+  "references": [
+    { "path": "./apps/web" },
+    { "path": "./apps/api" },
+    { "path": "./apps/worker" },
+    { "path": "./packages/core" },
+    { "path": "./packages/broker-paper" },
+    { "path": "./packages/feeds" },
+    { "path": "./packages/agents" },
+    { "path": "./packages/strategies" },
+    { "path": "./packages/telemetry" },
+    { "path": "./packages/db" },
+    { "path": "./packages/ui" }
+  ]
+}

@@ -1,0 +1,23 @@
+{
+  "name": "@arena/core",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "scripts": {
+    "build": "tsup src/index.ts --format esm && tsc -p tsconfig.json --emitDeclarationOnly",
+    "typecheck": "tsc --noEmit",
+    "lint": "eslint src",
+    "test": "vitest run --passWithNoTests"
+  },
+  "dependencies": {
+    "date-fns": "^4.4.0",
+    "decimal.js": "^10.6.0",
+    "eventemitter3": "^5.0.4",
+    "nanoid": "^5.1.11",
+    "ts-pattern": "^5.9.0",
+    "zod": "^4.4.3"
+  }
+}

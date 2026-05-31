@@ -1,0 +1,27 @@
+{
+  "name": "@arena/db",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "scripts": {
+    "generate": "drizzle-kit generate",
+    "migrate": "drizzle-kit migrate",
+    "build": "tsup src/index.ts --format esm && tsc -p tsconfig.json --emitDeclarationOnly",
+    "typecheck": "tsc --noEmit",
+    "lint": "eslint src",
+    "test": "vitest run"
+  },
+  "dependencies": {
+    "better-sqlite3": "^9.4.3",
+    "drizzle-orm": "^0.40.0",
+    "nanoid": "^5.1.11",
+    "zod": "^4.4.3"
+  },
+  "devDependencies": {
+    "@types/better-sqlite3": "^7.6.0",
+    "drizzle-kit": "^0.28.0"
+  }
+}
