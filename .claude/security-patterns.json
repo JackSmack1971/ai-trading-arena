@@ -1,0 +1,36 @@
+{
+  "version": 1,
+  "description": "Project-local security scanner patterns for the AI Trading Arena simulator framework.",
+  "patterns": [
+    {
+      "id": "browser-secret-storage",
+      "severity": "high",
+      "description": "Secrets must not be stored in browser storage surfaces.",
+      "regex": "(localStorage|sessionStorage)\\.(setItem|getItem)\\s*\\([\\s\\S]{0,120}(OPENROUTER_API_KEY|api[_-]?key|secret|token)"
+    },
+    {
+      "id": "real-trading-flag-enabled",
+      "severity": "high",
+      "description": "The framework must not enable real trading mode.",
+      "regex": "ALLOW_REAL_TRADING\\s*[=:]\\s*(true|\\\"true\\\")|allow_real_trading\\s*[=:]\\s*(true|\\\"true\\\")"
+    },
+    {
+      "id": "private-trading-endpoint",
+      "severity": "high",
+      "description": "Framework guidance or code should not target private broker, exchange, wallet, or order endpoints.",
+      "regex": "(binance|coinbase|kraken|alpaca|bybit|okx|broker|exchange|wallet)[\\s\\S]{0,120}(\\/order|\\/orders|\\/account|\\/accounts|\\/wallet|\\/transfer|\\/withdraw)"
+    },
+    {
+      "id": "wallet-signing-surface",
+      "severity": "high",
+      "description": "Wallet signing or broadcasting surfaces are out of scope for this simulator framework.",
+      "regex": "\\b(solana|ethers|cast|forge|wallet-cli)\\b[\\s\\S]{0,120}\\b(sign|send|transfer|broadcast)\\b"
+    },
+    {
+      "id": "secret-echo",
+      "severity": "high",
+      "description": "Do not print or serialize secret values into logs, fixtures, or exported artifacts.",
+      "regex": "(console\\.(log|error|warn)|logger\\.(info|warn|error)|JSON\\.stringify)[\\s\\S]{0,160}(OPENROUTER_API_KEY|api[_-]?key|secret|token)"
+    }
+  ]
+}

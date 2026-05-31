@@ -1,0 +1,13 @@
+# Claude local overrides
+CLAUDE.local.md
+.claude/settings.local.json
+.claude/worktrees/*
+!.claude/worktrees/.gitignore
+
+# Secrets
+.env
+.env.*
+*.pem
+*.key
+*credentials*
+*service-account*

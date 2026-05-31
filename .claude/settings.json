@@ -1,0 +1,99 @@
+{
+  "$schema": "https://json.schemastore.org/claude-code-settings.json",
+  "version": 1,
+  "description": "Shared Claude Code settings for the AI Trading Arena paper-trading simulator framework.",
+  "model": "sonnet",
+  "disableSkillShellExecution": true,
+  "disableBypassPermissionsMode": "disable",
+  "permissions": {
+    "defaultMode": "acceptEdits",
+    "allow": [
+      "Bash(git status)",
+      "Bash(git diff)",
+      "Bash(git log --oneline -20)",
+      "Bash(git branch --show-current)",
+      "Bash(pnpm install)",
+      "Bash(pnpm lint)",
+      "Bash(pnpm typecheck)",
+      "Bash(pnpm test)",
+      "Bash(pnpm test:unit)",
+      "Bash(pnpm test:e2e)",
+      "Bash(pnpm exec vitest:*)",
+      "Bash(pnpm exec playwright:*)",
+      "Bash(node .claude/workflows/arena-audit.js:*)"
+    ],
+    "deny": [
+      "Read(**/.env)",
+      "Read(**/.env.*)",
+      "Read(**/secrets/**)",
+      "Read(**/*.pem)",
+      "Read(**/*.key)",
+      "Bash(cat .env)",
+      "Bash(type .env)",
+      "Bash(cat .env.*)",
+      "Bash(type .env.*)",
+      "Bash(git push --force:*)",
+      "Bash(git reset --hard:*)",
+      "Bash(git clean -fd:*)",
+      "Bash(git clean -fdx:*)",
+      "Bash(rm -rf:*)",
+      "Bash(del /f /s /q:*)",
+      "Bash(Remove-Item:*)",
+      "Bash(Clear-Content:*)",
+      "Bash(Set-Content:*)",
+      "Bash([System.IO.File]::Delete:*)",
+      "Bash([System.IO.Directory]::Delete:*)",
+      "Bash(terraform destroy:*)",
+      "Bash(kubectl delete:*)",
+      "Bash(dropdb:*)"
+    ]
+  },
+  "confirmations": {
+    "dependencyChanges": true,
+    "databaseMigrations": true,
+    "publicApiChanges": true,
+    "deployments": true
+  },
+  "tools": {
+    "shell": {
+      "enabled": true,
+      "timeoutSeconds": 180
+    },
+    "git": {
+      "protectBranches": [
+        "main",
+        "master"
+      ],
+      "requireStatusBeforeCommit": true
+    }
+  },
+  "hooks": {
+    "PreToolUse": [
+      {
+        "matcher": "Bash|Edit|Write",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "node .claude/hooks/pre-tool-use.js",
+            "timeout": 10
+          }
+        ]
+      }
+    ],
+    "PostToolUse": [
+      {
+        "matcher": "Edit|Write",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "node .claude/hooks/post-tool-use.js",
+            "timeout": 10
+          }
+        ]
+      }
+    ]
+  },
+  "claudeMdExcludes": [
+    ".claude/worktrees/**"
+  ]
+}
