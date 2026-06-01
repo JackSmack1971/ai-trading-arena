@@ -1,8 +1,13 @@
 import { defineConfig } from "vitest/config";
+import tsconfigPaths from "vite-tsconfig-paths";
 
 export default defineConfig({
+  plugins: [tsconfigPaths()],
   test: {
     passWithNoTests: true,
+    alias: {
+      "@arena/core": "F:/ai-trading-arena/packages/core/src/index.ts"
+    },
     coverage: {
       provider: "v8",
       reporter: ["text", "lcov"],

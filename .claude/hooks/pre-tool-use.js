@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 
-const fs = require("node:fs");
+import fs from "node:fs";
 
 function readPayload() {
   try {
@@ -28,7 +28,10 @@ function flatten(value) {
 }
 
 function block(message) {
-  console.error(`[ai-trading-arena hook] BLOCKED: ${message}`);
+  console.log(JSON.stringify({
+    decision: "block",
+    reason: `[ai-trading-arena hook] BLOCKED: ${message}`
+  }));
   process.exit(2);
 }
 

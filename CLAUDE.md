@@ -4,6 +4,8 @@ This repository is a Claude Code framework for a local-first AI paper-trading si
 
 ## Read order
 
+On Windows, when using the Bash tool, use POSIX-compatible commands such as find, ls, grep, sed, and cat. Do not use CMD-only syntax like dir /s /b unless explicitly invoking cmd.exe or powershell.exe.
+
 1. `AGENTS.md`
 2. `docs/AI_TRADING_ARENA_BLUEPRINT.md`
 3. `docs/PRACTICAL_LIBRARY_MAP.md`

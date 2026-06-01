@@ -3,6 +3,7 @@ CLAUDE.local.md
 .claude/settings.local.json
 .claude/worktrees/*
 !.claude/worktrees/.gitignore
+.planning/
 
 # ── Secrets ───────────────────────────────────────────────────────────────────
 .env

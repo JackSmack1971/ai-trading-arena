@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 
-const fs = require("node:fs");
+import fs from "node:fs";
 
 function readPayload() {
   try {
@@ -12,18 +12,11 @@ function readPayload() {
 }
 
 function flatten(value) {
-  if (typeof value === "string") {
-    return value;
-  }
-
-  if (Array.isArray(value)) {
-    return value.map(flatten).join("\n");
-  }
-
+  if (typeof value === "string") return value;
+  if (Array.isArray(value)) return value.map(flatten).join("\n");
   if (value && typeof value === "object") {
     return Object.values(value).map(flatten).join("\n");
   }
-
   return "";
 }
 
@@ -31,7 +24,8 @@ const payload = readPayload();
 const blob = flatten(payload);
 
 if (/(^|[\\/])(\.claude|docs)[\\/]/i.test(blob) || /(claude\.md|agents\.md|settings\.json)/i.test(blob)) {
-  console.error(
-    "[ai-trading-arena hook] Claude surface changed. Re-run `node .claude/workflows/arena-audit.js` before closing the task."
-  );
+  console.log(JSON.stringify({
+    decision: "block",
+    reason: "[ai-trading-arena hook] Claude surface changed. Re-run `node .claude/workflows/arena-audit.js` before closing the task."
+  }));
 }
