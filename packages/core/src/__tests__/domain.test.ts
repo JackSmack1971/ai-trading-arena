@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { z } from 'zod';
+import type { z } from 'zod';
 import {
   AgentDecisionSchema,
   PaperFillSchema,
@@ -237,9 +237,9 @@ describe('RiskEventSchema', () => {
 });
 
 describe('SimEventTypeSchema', () => {
-  it('validates all 19 event types', () => {
+  it('validates all 20 event types', () => {
     const types = SimEventTypeSchema.options;
-    expect(types).toHaveLength(19);
+    expect(types).toHaveLength(20);
     expect(types).toContain('MARKET_TICK_RECEIVED');
     expect(types).toContain('PAPER_ORDER_FILLED');
     expect(types).toContain('AGENT_DECISION_INVALID');
