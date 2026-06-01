@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeEach } from 'vitest';
-import { StrategyExecutor, DEFAULT_HISTORY_LIMIT, SignalValidationError } from '../executor.js';
+import { StrategyExecutor, DEFAULT_HISTORY_LIMIT } from '../executor.js';
 import { STRATEGY_SIGNAL_CREATED_TYPE, toStrategySignalEvent } from '../signal-events.js';
 import type {
   NormalizedMarketEvent,

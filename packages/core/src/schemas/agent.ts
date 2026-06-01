@@ -1,7 +1,7 @@
 import { z } from 'zod';
 import { AgentIdSchema, NonNegativeDecimalStringSchema, RunIdSchema, StrategyIdSchema, SymbolSchema, TimestampSchema } from './common.js';
 import { PaperOrderSchema } from './broker.js';
-import { MarketStateSummarySchema, NormalizedMarketEventSchema } from './market.js';
+import { MarketStateSummarySchema } from './market.js';
 import { PortfolioSummarySchema, TradeSummarySchema } from './broker.js';
 import { StrategyDescriptorSchema, StrategySignalSchema } from './strategy.js';
 import { RiskStateSchema } from './risk.js';

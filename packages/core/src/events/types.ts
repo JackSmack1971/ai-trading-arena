@@ -1,6 +1,6 @@
 import { z } from 'zod';
 import { EventIdSchema, RunIdSchema, TimestampSchema } from '../schemas/common.js';
-import { AgentDecisionSchema, AgentObservationSchema } from '../schemas/agent.js';
+import { AgentDecisionSchema } from '../schemas/agent.js';
 import { NormalizedMarketEventSchema } from '../schemas/market.js';
 import { PaperFillSchema, PaperOrderSchema, PnLSnapshotSchema, PositionSchema } from '../schemas/broker.js';
 import { RiskEventSchema } from '../schemas/risk.js';
@@ -19,6 +19,7 @@ export const SimEventTypeSchema = z.enum([
   'PAPER_ORDER_CREATED',
   'PAPER_ORDER_AMENDED',
   'PAPER_ORDER_CANCELLED',
+  'PAPER_ORDER_REJECTED',
   'PAPER_ORDER_FILLED',
   'POSITION_UPDATED',
   'PNL_SNAPSHOT_CREATED',

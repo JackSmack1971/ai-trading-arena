@@ -11,5 +11,8 @@
     "typecheck": "tsc --noEmit",
     "lint": "eslint src",
     "test": "vitest run --passWithNoTests"
+  },
+  "dependencies": {
+    "@arena/core": "workspace:*"
   }
 }

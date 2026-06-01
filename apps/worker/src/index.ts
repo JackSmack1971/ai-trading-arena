@@ -2,6 +2,7 @@ import { pino } from 'pino';
 import { createDb, appendEventPayload } from '@arena/db';
 import { CoinbaseFeedAdapter } from '@arena/feeds';
 import type { ArenaDb } from '@arena/db';
+import { ensureWorkerDbMigrated } from './db.js';
 import type { MarketFeedAdapter } from '@arena/core';
 
 const logger = pino({ name: 'worker' });
@@ -21,6 +22,7 @@ export interface WorkerHandle {
 
 export async function runWorker(opts?: WorkerOptions): Promise<WorkerHandle> {
   const db = opts?.db ?? createDb(process.env['DB_FILE_NAME'] ?? 'arena.db');
+  if (!opts?.db) ensureWorkerDbMigrated(db);
   const runId = opts?.runId ?? process.env['RUN_ID'] ?? `feed-${Date.now()}`;
   const symbols = opts?.symbols ?? (process.env['SYMBOLS']?.split(',') ?? ['BTC-USD']);
   const adapters: MarketFeedAdapter[] = opts?.adapters ?? [new CoinbaseFeedAdapter()];

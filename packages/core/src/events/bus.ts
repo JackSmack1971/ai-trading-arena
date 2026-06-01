@@ -40,6 +40,7 @@ export function describeEventType(type: SimEventType): string {
     .with('PAPER_ORDER_CREATED', () => 'Paper order created in broker')
     .with('PAPER_ORDER_AMENDED', () => 'Paper order amended')
     .with('PAPER_ORDER_CANCELLED', () => 'Paper order cancelled')
+    .with('PAPER_ORDER_REJECTED', () => 'Paper order rejected before broker mutation')
     .with('PAPER_ORDER_FILLED', () => 'Paper order filled')
     .with('POSITION_UPDATED', () => 'Position state updated')
     .with('PNL_SNAPSHOT_CREATED', () => 'P&L snapshot recorded')

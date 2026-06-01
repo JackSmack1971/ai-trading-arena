@@ -1,6 +1,6 @@
 import { readFileSync } from 'node:fs';
 import { parse } from 'yaml';
-import { z } from 'zod';
+import type { z } from 'zod';
 import { StrategyManifestSchema } from './schemas.js';
 import type { StrategyManifest } from './types.js';
 
