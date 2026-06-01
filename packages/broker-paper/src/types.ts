@@ -1,16 +1,17 @@
-// All decimal money values are decimal strings for precision.
-// Use MoneyDecimal for arithmetic; serialize to/from strings at boundaries.
+// Types shared with @arena/core — imported instead of redefined to prevent drift.
+export type {
+  OrderType,
+  OrderSide,
+  OrderStatus,
+  PositionSide,
+  PaperOrder,
+  PaperFill,
+  Position,
+  PnLSnapshot,
+  PortfolioSummary,
+} from '@arena/core';
 
-export type OrderType = 'MARKET' | 'LIMIT' | 'STOP' | 'STOP_LIMIT';
-export type OrderSide = 'BUY' | 'SELL';
-export type OrderStatus =
-  | 'PENDING'
-  | 'OPEN'
-  | 'PARTIALLY_FILLED'
-  | 'FILLED'
-  | 'CANCELLED'
-  | 'REJECTED';
-export type PositionSide = 'LONG' | 'SHORT';
+// Broker-paper-specific types that do not exist in @arena/core.
 
 export interface MarketTick {
   symbol: string;
@@ -23,89 +24,15 @@ export interface MarketTick {
 export interface PlaceOrderRequest {
   orderId?: string;
   symbol: string;
-  side: OrderSide;
+  side: 'BUY' | 'SELL';
   quantityUsd: string;
   limitPrice?: string;
   stopPrice?: string;
-  orderType: OrderType;
+  orderType: 'MARKET' | 'LIMIT' | 'STOP' | 'STOP_LIMIT';
   decisionId?: string;
 }
 
-export interface PaperOrder {
-  orderId: string;
-  runId: string;
-  agentId: string;
-  symbol: string;
-  orderType: OrderType;
-  side: OrderSide;
-  quantityUsd: string;
-  limitPrice?: string;
-  stopPrice?: string;
-  status: OrderStatus;
-  filledQuantityUsd: string;
-  averageFillPrice?: string;
-  decisionId?: string;
-  createdAt: string;
-  updatedAt: string;
-}
-
-export interface PaperFill {
-  fillId: string;
-  orderId: string;
-  agentId: string;
-  symbol: string;
-  side: OrderSide;
-  quantity: string;
-  price: string;
-  fee: string;
-  slippageBps: string;
-  liquiditySource: string;
-  timestamp: string;
-}
-
-export interface Position {
-  positionId: string;
-  runId: string;
-  agentId: string;
-  symbol: string;
-  side: PositionSide;
-  quantity: string;
-  averageEntryPrice: string;
-  currentPrice: string;
-  unrealizedPnl: string;
-  realizedPnl: string;
-  openedAt: string;
-  updatedAt: string;
-}
-
-export interface PnLSnapshot {
-  snapshotId: string;
-  runId: string;
-  agentId: string;
-  timestamp: string;
-  equity: string;
-  cashBalance: string;
-  positionValue: string;
-  unrealizedPnl: string;
-  realizedPnl: string;
-  totalReturnPct: string;
-  maxDrawdownPct: string;
-  totalFeesPaid: string;
-  totalSlippagePaid: string;
-  tradeCount: number;
-}
-
-export interface PortfolioSummary {
-  agentId: string;
-  cashBalance: string;
-  equity: string;
-  totalPositionValue: string;
-  unrealizedPnl: string;
-  realizedPnl: string;
-  exposurePct: string;
-  currentDrawdownPct: string;
-  snapshotAt: string;
-}
+import type { PaperOrder, PaperFill, Position, PnLSnapshot } from '@arena/core';
 
 export type BrokerEventPayload =
   | { type: 'PAPER_ORDER_CREATED'; order: PaperOrder }

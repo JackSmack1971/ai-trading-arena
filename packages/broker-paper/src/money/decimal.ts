@@ -1,27 +1,12 @@
-import { Decimal } from 'decimal.js';
-
-export const MoneyDecimal = Decimal.clone({
-  precision: 28,
-  rounding: Decimal.ROUND_HALF_UP,
-  toExpNeg: -28,
-  toExpPos: 28,
-});
-
-export type MoneyDecimal = InstanceType<typeof MoneyDecimal>;
-
-export const ZERO_MONEY = new MoneyDecimal('0');
-export const MONEY_ROUNDING_MODE = Decimal.ROUND_HALF_UP;
-export const MONEY_SCALE_USD = 2;
-export const MONEY_SCALE_CRYPTO = 8;
-
-export function roundForLedger(value: MoneyDecimal, scale = MONEY_SCALE_USD): MoneyDecimal {
-  return new MoneyDecimal(value.toDP(scale, MONEY_ROUNDING_MODE).toString());
-}
-
-export function roundForDisplay(value: MoneyDecimal, scale = MONEY_SCALE_USD): string {
-  return value.toDP(scale, MONEY_ROUNDING_MODE).toFixed(scale);
-}
-
-export function roundForSettlement(value: MoneyDecimal, scale = MONEY_SCALE_USD): string {
-  return value.toDP(scale, MONEY_ROUNDING_MODE).toFixed(scale);
-}
+// Single authoritative MoneyDecimal — re-exported from @arena/core so there
+// is exactly one Decimal.clone() configuration across the entire workspace.
+export {
+  MoneyDecimal,
+  ZERO_MONEY,
+  MONEY_ROUNDING_MODE,
+  MONEY_SCALE_USD,
+  MONEY_SCALE_CRYPTO,
+  roundForLedger,
+  roundForDisplay,
+  roundForSettlement,
+} from '@arena/core';
