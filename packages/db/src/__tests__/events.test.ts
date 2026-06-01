@@ -2,11 +2,12 @@ import { createHash } from 'node:crypto';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { migrate } from 'drizzle-orm/better-sqlite3/migrator';
+import { eq } from 'drizzle-orm';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { createMemoryDb, type ArenaDb } from '../client.js';
-import { appendEvent, appendEvents, countEvents, getEvent, replayRun } from '../repositories/events.js';
+import { appendEvent, appendEvents, countEvents, getEvent, replayRun, appendEventPayload, verifyHashChain } from '../repositories/events.js';
 import { projectEventTypeCounts, projectRunSummary } from '../projections/index.js';
-import type { InsertEvent } from '../schema.js';
+import { events, type InsertEvent } from '../schema.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const migrationsFolder = path.resolve(__dirname, '../../drizzle');
@@ -213,5 +214,41 @@ describe('projections', () => {
     expect(tick?.count).toBe(1);
     expect(bar?.count).toBe(4);
     expect(decision?.count).toBe(5);
+  });
+});
+
+describe('appendEventPayload + verifyHashChain', () => {
+  it('automatically calculates sequence and chains hashes correctly', () => {
+    const runId = 'auto-run';
+    const ev1 = appendEventPayload(db, {
+      runId,
+      type: 'MARKET_TICK_RECEIVED',
+      source: 'test',
+      payload: { price: '50000', symbol: 'BTC-USD' },
+    });
+
+    const ev2 = appendEventPayload(db, {
+      runId,
+      type: 'BAR_CLOSED',
+      source: 'test',
+      payload: { close: '50100', symbol: 'BTC-USD' },
+    });
+
+    expect(ev1.seq).toBe(0);
+    expect(ev1.previousHash).toBeNull();
+
+    expect(ev2.seq).toBe(1);
+    expect(ev2.previousHash).toBe(ev1.payloadHash);
+
+    // Verify hash chain
+    expect(verifyHashChain(db, runId)).toBe(true);
+
+    // Corrupt the database by inserting a modified event or modifying in DB
+    db.update(events)
+      .set({ payloadJson: JSON.stringify({ price: '99999', symbol: 'BTC-USD' }) })
+      .where(eq(events.id, ev1.id))
+      .run();
+
+    expect(verifyHashChain(db, runId)).toBe(false);
   });
 });

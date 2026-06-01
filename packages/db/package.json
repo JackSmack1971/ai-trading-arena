@@ -15,7 +15,7 @@
     "test": "vitest run"
   },
   "dependencies": {
-    "better-sqlite3": "^9.4.3",
+    "better-sqlite3": "^11.3.0",
     "drizzle-orm": "^0.40.0",
     "nanoid": "^5.1.11",
     "zod": "^4.4.3"

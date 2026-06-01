@@ -1,6 +1,11 @@
-import { asc, eq } from 'drizzle-orm';
+import { createHash } from 'node:crypto';
+import { asc, desc, eq } from 'drizzle-orm';
 import type { ArenaDb } from '../client.js';
 import { events, type EventRow, type InsertEvent } from '../schema.js';
+
+function sha256(data: string): string {
+  return createHash('sha256').update(data).digest('hex');
+}
 
 export function appendEvent(db: ArenaDb, event: InsertEvent): void {
   db.insert(events).values(event).run();
@@ -31,4 +36,85 @@ export function countEvents(db: ArenaDb, runId: string): number {
     .where(eq(events.runId, runId))
     .all();
   return rows.length;
+}
+
+/**
+ * Appends a new event payload to the log.
+ * Resolves the next sequence number (seq) and computes the hash chain
+ * (payloadHash = sha256(payloadJson + previousHash)).
+ */
+export function appendEventPayload(
+  db: ArenaDb,
+  params: {
+    runId: string;
+    type: string;
+    source: string;
+    payload: Record<string, unknown>;
+    timestamp?: string;
+  }
+): EventRow {
+  const lastEvent = db
+    .select()
+    .from(events)
+    .where(eq(events.runId, params.runId))
+    .orderBy(desc(events.seq))
+    .limit(1)
+    .get();
+
+  const nextSeq = lastEvent ? lastEvent.seq + 1 : 0;
+  const previousHash = lastEvent ? lastEvent.payloadHash : null;
+
+  const payloadJson = JSON.stringify(params.payload);
+  const hashInput = payloadJson + (previousHash ?? '');
+  const payloadHash = sha256(hashInput);
+
+  const id = `evt-${params.runId}-${nextSeq}`;
+  const createdAt = new Date().toISOString();
+  const timestamp = params.timestamp || createdAt;
+
+  const newEvent: InsertEvent = {
+    id,
+    runId: params.runId,
+    seq: nextSeq,
+    type: params.type,
+    source: params.source,
+    timestamp,
+    payloadJson,
+    payloadHash,
+    previousHash,
+    createdAt,
+  };
+
+  db.insert(events).values(newEvent).run();
+
+  return newEvent as EventRow;
+}
+
+/**
+ * Verifies that the hash chain is intact for a given runId.
+ * Replays all events and re-calculates the hashes to ensure no tampering occurred.
+ */
+export function verifyHashChain(db: ArenaDb, runId: string): boolean {
+  const runEvents = db
+    .select()
+    .from(events)
+    .where(eq(events.runId, runId))
+    .orderBy(asc(events.seq))
+    .all();
+
+  let expectedPrevHash: string | null = null;
+
+  for (const ev of runEvents) {
+    if (ev.previousHash !== expectedPrevHash) {
+      return false;
+    }
+    const hashInput = ev.payloadJson + (expectedPrevHash ?? '');
+    const calculatedHash = sha256(hashInput);
+    if (ev.payloadHash !== calculatedHash) {
+      return false;
+    }
+    expectedPrevHash = ev.payloadHash;
+  }
+
+  return true;
 }

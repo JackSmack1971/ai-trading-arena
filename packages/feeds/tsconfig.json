@@ -6,7 +6,10 @@
     "moduleResolution": "NodeNext",
     "outDir": "dist",
     "rootDir": "src",
-    "composite": true
+    "composite": true,
+    "paths": {
+      "@arena/core": ["../core/dist/index.d.ts"]
+    }
   },
   "include": ["src"]
 }
