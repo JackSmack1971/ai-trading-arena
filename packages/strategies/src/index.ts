@@ -26,6 +26,19 @@ export { ManifestValidationError, loadManifest, parseManifestYaml } from './mani
 export { StrategyRegistry } from './registry.js';
 export { defaultRegistry, createDefaultRegistry } from './default-registry.js';
 
+export {
+  StrategyLoadRejectedError,
+  scanSource,
+  loadStrategy,
+} from './loader.js';
+export type { LoadedStrategy } from './loader.js';
+
+export {
+  StrategyExecutor,
+  SignalValidationError,
+  DEFAULT_HISTORY_LIMIT,
+} from './executor.js';
+
 export { doNothingBaseline } from './built-ins/do-nothing-baseline.js';
 export { momentumBasic } from './built-ins/momentum-basic.js';
 export { meanReversionBasic } from './built-ins/mean-reversion-basic.js';

@@ -13,6 +13,7 @@ export const StrategyManifestSchema = z.object({
   version: z.string().min(1),
   entry: z.string().min(1),
   permissions: StrategyManifestPermissionsSchema,
+  inputs: z.record(z.unknown()).optional(),
 });
 
 export const StrategySignalSchema = z.object({

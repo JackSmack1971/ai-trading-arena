@@ -90,6 +90,7 @@ export interface StrategyManifest {
   version: string;
   entry: string;
   permissions: StrategyManifestPermissions;
+  inputs?: Record<string, any>;
 }
 
 export type NormalizedEventType =

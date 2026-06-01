@@ -81,4 +81,20 @@ permissions:
       expect(e.issues.length).toBeGreaterThan(0);
     }
   });
+
+  it('parses dynamic inputs successfully', () => {
+    const yaml = `${VALID_YAML}
+inputs:
+      symbol: BTC-USD
+      period: 14
+      oversold: 28
+      overbought: 72
+`;
+    const manifest = parseManifestYaml(yaml);
+    expect(manifest.inputs).toBeDefined();
+    expect(manifest.inputs!.symbol).toBe('BTC-USD');
+    expect(manifest.inputs!.period).toBe(14);
+    expect(manifest.inputs!.oversold).toBe(28);
+    expect(manifest.inputs!.overbought).toBe(72);
+  });
 });
