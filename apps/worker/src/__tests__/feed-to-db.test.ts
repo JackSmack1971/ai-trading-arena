@@ -12,9 +12,8 @@ import { fileURLToPath } from 'node:url';
 import { vi, describe, it, expect, beforeEach, afterEach } from 'vitest';
 import { migrate } from 'drizzle-orm/better-sqlite3/migrator';
 import { createMemoryDb, appendEventPayload, countEvents, replayRun } from '@arena/db';
-import { CoinbaseFeedAdapter } from '@arena/feeds';
 import { NormalizedMarketEventSchema } from '@arena/core';
-import type { MarketFeedAdapter, NormalizedMarketEvent } from '@arena/core';
+import type { FeedCapability, MarketFeedAdapter, NormalizedMarketEvent } from '@arena/core';
 import { runWorker } from '../index.js';
 
 // Resolve the @arena/db migrations folder from the test file location.
@@ -33,7 +32,7 @@ class StubFeedAdapter implements MarketFeedAdapter {
   readonly id = 'coinbase';
   readonly name = 'Stub Coinbase Feed';
   readonly authRequired = false as const;
-  readonly capabilities: import('@arena/core').FeedCapability[] = ['TICKER'];
+  readonly capabilities: FeedCapability[] = ['TICKER'];
   readonly ratePolicy = {
     provider: 'coinbase',
     limits: [{ scope: 'request' as const, max: 5, intervalMs: 1000 }],

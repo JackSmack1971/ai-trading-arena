@@ -4,7 +4,6 @@ import { fileURLToPath } from "node:url";
 
 const REQUIRED_FILES = [
   "CLAUDE.md",
-  "CLAUDE.local.md",
   "AGENTS.md",
   ".gitignore",
   "README.md",
@@ -13,7 +12,6 @@ const REQUIRED_FILES = [
   "docs/FRAMEWORK_TRACEABILITY.md",
   ".claude/README.md",
   ".claude/claude-security-guidance.md",
-  ".claude/settings.local.json",
   ".claude/commands/README.md",
   ".claude/skills/README.md",
   ".claude/agents/README.md",
@@ -472,7 +470,8 @@ async function run(context = {}) {
   const settingsPath = path.join(repoRoot, ".claude/settings.json");
   const settings = await readJson(settingsPath);
   const settingsLocalPath = path.join(repoRoot, ".claude/settings.local.json");
-  const settingsLocal = await readJson(settingsLocalPath);
+  const hasSettingsLocal = await exists(settingsLocalPath);
+  const settingsLocal = hasSettingsLocal ? await readJson(settingsLocalPath) : undefined;
   const securityPatternsPath = path.join(repoRoot, ".claude/security-patterns.json");
   const securityPatterns = await readJson(securityPatternsPath);
   if (!settings || typeof settings !== "object") {
@@ -516,12 +515,12 @@ async function run(context = {}) {
     }
   }
 
-  if (!settingsLocal || typeof settingsLocal !== "object") {
+  if (hasSettingsLocal && (!settingsLocal || typeof settingsLocal !== "object")) {
     findings.push({
       severity: "high",
       kind: "invalid-settings-local",
       path: ".claude/settings.local.json",
-      message: "Local settings must parse as JSON so the local override layer is usable."
+      message: "Local settings must parse as JSON when the optional local override file is present."
     });
   }
 
@@ -563,6 +562,7 @@ async function run(context = {}) {
 
   const gitignorePath = path.join(repoRoot, ".gitignore");
   const requiredIgnorePatterns = [
+    "CLAUDE.local.md",
     ".claude/settings.local.json",
     ".claude/worktrees/*",
     "!.claude/worktrees/.gitignore"
