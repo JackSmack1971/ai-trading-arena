@@ -8,6 +8,7 @@ import type {
 } from '@arena/core';
 import { normalizeCoinbaseTick } from '../normalizers/coinbase.js';
 import { feedLogger } from '../logger.js';
+import { coinbaseLimiter } from '../limiters.js';
 
 export class CoinbaseFeedAdapter implements MarketFeedAdapter {
   readonly id = 'coinbase';
@@ -138,7 +139,14 @@ export class CoinbaseFeedAdapter implements MarketFeedAdapter {
     );
 
     this.reconnectTimer = setTimeout(() => {
-      this.doConnect();
+      coinbaseLimiter
+        .schedule(
+          { id: `coinbase:reconnect:${this.reconnectAttempts}`, expiration: 60_000 },
+          () => { this.doConnect(); return Promise.resolve(); },
+        )
+        .catch((err) => {
+          this.logger.error({ err, event: 'feed.reconnect_limiter_error' }, 'Coinbase reconnect limiter error');
+        });
     }, delay);
   }
 
@@ -148,6 +156,7 @@ export class CoinbaseFeedAdapter implements MarketFeedAdapter {
       clearTimeout(this.reconnectTimer);
       this.reconnectTimer = null;
     }
+    await coinbaseLimiter.stop({ dropWaitingJobs: true });
     if (this.ws) {
       this.ws.close();
       this.ws = null;

@@ -8,6 +8,7 @@ import type {
 } from '@arena/core';
 import { normalizeBinanceTrade } from '../normalizers/binance.js';
 import { feedLogger } from '../logger.js';
+import { binanceLimiter } from '../limiters.js';
 
 export class BinanceFeedAdapter implements MarketFeedAdapter {
   readonly id = 'binance';
@@ -147,7 +148,14 @@ export class BinanceFeedAdapter implements MarketFeedAdapter {
     );
 
     this.reconnectTimer = setTimeout(() => {
-      this.doConnect();
+      binanceLimiter
+        .schedule(
+          { id: `binance:reconnect:${this.reconnectAttempts}`, expiration: 60_000 },
+          () => { this.doConnect(); return Promise.resolve(); },
+        )
+        .catch((err) => {
+          this.logger.error({ err, event: 'feed.reconnect_limiter_error' }, 'Binance reconnect limiter error');
+        });
     }, delay);
   }
 
@@ -157,6 +165,7 @@ export class BinanceFeedAdapter implements MarketFeedAdapter {
       clearTimeout(this.reconnectTimer);
       this.reconnectTimer = null;
     }
+    await binanceLimiter.stop({ dropWaitingJobs: true });
     if (this.ws) {
       this.ws.close();
       this.ws = null;
