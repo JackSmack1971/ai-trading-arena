@@ -7,6 +7,7 @@ import type {
   NormalizedMarketEvent,
 } from '@arena/core';
 import { normalizeBinanceTrade } from '../normalizers/binance.js';
+import { feedLogger } from '../logger.js';
 
 export class BinanceFeedAdapter implements MarketFeedAdapter {
   readonly id = 'binance';
@@ -40,6 +41,7 @@ export class BinanceFeedAdapter implements MarketFeedAdapter {
   private baseDelay = 1000;
   private isIntentionallyDisconnected = false;
   private reconnectTimer: NodeJS.Timeout | null = null;
+  private logger = feedLogger.child({ adapter: 'binance' });
 
   // Track map of binance ticker name (e.g. btcusdt) -> original symbol format (e.g. BTC-USDT)
   private symbolMap: Map<string, string> = new Map();
@@ -64,8 +66,8 @@ export class BinanceFeedAdapter implements MarketFeedAdapter {
 
       this.ws.on('open', () => {
         this.reconnectAttempts = 0;
-        console.log('Binance WebSocket connected');
-        
+        this.logger.info({ event: 'feed.connected' }, 'Binance WebSocket connected');
+
         // Subscribe to current symbols
         if (this.symbols.size > 0) {
           this.sendSubscription(Array.from(this.symbols), 'SUBSCRIBE');
@@ -90,19 +92,19 @@ export class BinanceFeedAdapter implements MarketFeedAdapter {
             }
           }
         } catch (err) {
-          console.error('Error parsing Binance message:', err);
+          this.logger.error({ err, event: 'feed.parse_failed' }, 'Error parsing Binance message');
         }
       });
 
       this.ws.on('close', () => {
         if (!this.isIntentionallyDisconnected) {
-          console.warn('Binance connection closed unexpectedly, attempting reconnect');
+          this.logger.warn({ event: 'feed.closed' }, 'Binance connection closed unexpectedly, attempting reconnect');
           this.handleReconnect();
         }
       });
 
       this.ws.on('error', (err) => {
-        console.error('Binance WS Error:', err);
+        this.logger.error({ err, event: 'feed.ws_error' }, 'Binance WS error');
         if (reject && this.reconnectAttempts === 0) {
           reject(err);
         }
@@ -121,17 +123,28 @@ export class BinanceFeedAdapter implements MarketFeedAdapter {
         this.ws.close();
         this.ws = null;
       }
-      console.error('Max Binance reconnect attempts reached. Exiting.');
+      this.logger.error(
+        { event: 'feed.reconnect_exhausted', attempts: this.maxReconnectAttempts },
+        'Binance reconnect attempts exhausted',
+      );
       this.errorHandler?.(err);
       return;
     }
 
     const delay = Math.min(
       this.baseDelay * Math.pow(2, this.reconnectAttempts) + Math.random() * 1000,
-      30000
+      30000,
     );
     this.reconnectAttempts++;
-    console.log(`Reconnecting to Binance in ${delay.toFixed(0)}ms (attempt ${this.reconnectAttempts}/${this.maxReconnectAttempts})`);
+    this.logger.warn(
+      {
+        event: 'feed.reconnect_scheduled',
+        attempt: this.reconnectAttempts,
+        max: this.maxReconnectAttempts,
+        delayMs: Math.round(delay),
+      },
+      'Reconnecting to Binance',
+    );
 
     this.reconnectTimer = setTimeout(() => {
       this.doConnect();
@@ -191,13 +204,13 @@ export class BinanceFeedAdapter implements MarketFeedAdapter {
 
   private sendSubscription(symbols: string[], method: 'SUBSCRIBE' | 'UNSUBSCRIBE') {
     if (!this.ws) return;
-    const params = symbols.map(s => `${s.toLowerCase().replace('-', '')}@trade`);
+    const params = symbols.map((s) => `${s.toLowerCase().replace('-', '')}@trade`);
     this.ws.send(
       JSON.stringify({
         method,
         params,
         id: Date.now(),
-      })
+      }),
     );
   }
 }

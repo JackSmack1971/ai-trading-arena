@@ -7,6 +7,7 @@ import type {
   NormalizedMarketEvent,
 } from '@arena/core';
 import { normalizeCoinbaseTick } from '../normalizers/coinbase.js';
+import { feedLogger } from '../logger.js';
 
 export class CoinbaseFeedAdapter implements MarketFeedAdapter {
   readonly id = 'coinbase';
@@ -40,6 +41,7 @@ export class CoinbaseFeedAdapter implements MarketFeedAdapter {
   private baseDelay = 1000;
   private isIntentionallyDisconnected = false;
   private reconnectTimer: NodeJS.Timeout | null = null;
+  private logger = feedLogger.child({ adapter: 'coinbase' });
 
   connect(config: FeedConfig): Promise<void> {
     this.config = config;
@@ -61,8 +63,8 @@ export class CoinbaseFeedAdapter implements MarketFeedAdapter {
 
       this.ws.on('open', () => {
         this.reconnectAttempts = 0;
-        console.log('Coinbase WebSocket connected');
-        
+        this.logger.info({ event: 'feed.connected' }, 'Coinbase WebSocket connected');
+
         // Subscribe to current symbols
         if (this.symbols.size > 0) {
           this.sendSubscription(Array.from(this.symbols), 'subscribe');
@@ -81,19 +83,19 @@ export class CoinbaseFeedAdapter implements MarketFeedAdapter {
             }
           }
         } catch (err) {
-          console.error('Error parsing Coinbase message:', err);
+          this.logger.error({ err, event: 'feed.parse_failed' }, 'Error parsing Coinbase message');
         }
       });
 
       this.ws.on('close', () => {
         if (!this.isIntentionallyDisconnected) {
-          console.warn('Coinbase connection closed unexpectedly, attempting reconnect');
+          this.logger.warn({ event: 'feed.closed' }, 'Coinbase connection closed unexpectedly, attempting reconnect');
           this.handleReconnect();
         }
       });
 
       this.ws.on('error', (err) => {
-        console.error('Coinbase WS Error:', err);
+        this.logger.error({ err, event: 'feed.ws_error' }, 'Coinbase WS error');
         if (reject && this.reconnectAttempts === 0) {
           reject(err);
         }
@@ -112,17 +114,28 @@ export class CoinbaseFeedAdapter implements MarketFeedAdapter {
         this.ws.close();
         this.ws = null;
       }
-      console.error('Max Coinbase reconnect attempts reached. Exiting.');
+      this.logger.error(
+        { event: 'feed.reconnect_exhausted', attempts: this.maxReconnectAttempts },
+        'Coinbase reconnect attempts exhausted',
+      );
       this.errorHandler?.(err);
       return;
     }
 
     const delay = Math.min(
       this.baseDelay * Math.pow(2, this.reconnectAttempts) + Math.random() * 1000,
-      30000
+      30000,
     );
     this.reconnectAttempts++;
-    console.log(`Reconnecting to Coinbase in ${delay.toFixed(0)}ms (attempt ${this.reconnectAttempts}/${this.maxReconnectAttempts})`);
+    this.logger.warn(
+      {
+        event: 'feed.reconnect_scheduled',
+        attempt: this.reconnectAttempts,
+        max: this.maxReconnectAttempts,
+        delayMs: Math.round(delay),
+      },
+      'Reconnecting to Coinbase',
+    );
 
     this.reconnectTimer = setTimeout(() => {
       this.doConnect();
@@ -184,7 +197,7 @@ export class CoinbaseFeedAdapter implements MarketFeedAdapter {
         type,
         product_ids: symbols,
         channels: ['ticker'],
-      })
+      }),
     );
   }
 }
