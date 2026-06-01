@@ -11,6 +11,7 @@ import {
   type PortfolioSummary,
   type RiskState,
   type StrategyDescriptor,
+  type StrategySignal,
 } from '@arena/core';
 
 export interface DemoRunOptions {
@@ -74,10 +75,20 @@ export function runDeterministicDemo(options: DemoRunOptions = {}): DemoRunResul
     });
 
     const marketTick = toMarketTick(tickEvent);
+    const recentSignals = createDemoSignals(tickEvent, tickIndex);
+    for (const signal of recentSignals) {
+      appendEventPayload(db, {
+        runId,
+        type: 'STRATEGY_SIGNAL_CREATED',
+        source: signal.strategyId,
+        payload: signal as unknown as Record<string, unknown>,
+        timestamp: signal.createdAt,
+      });
+    }
 
     for (const agent of agents) {
       const broker = mustGetBroker(brokers, agent.agentId);
-      const observation = buildObservation({ agent, broker, tickEvent, runId, tickIndex });
+      const observation = buildObservation({ agent, broker, tickEvent, runId, tickIndex, recentSignals });
       appendEventPayload(db, {
         runId,
         type: 'AGENT_DECISION_REQUESTED',
@@ -117,6 +128,23 @@ export function runDeterministicDemo(options: DemoRunOptions = {}): DemoRunResul
   };
 }
 
+
+function createDemoSignals(event: NormalizedMarketEvent, tickIndex: number): StrategySignal[] {
+  if (tickIndex === 0) return [];
+
+  const signal = tickIndex === 1 ? 'long' : 'reduce_long';
+  return [{
+    signalId: `sig-${event.eventId}`,
+    strategyId: 'demo-momentum',
+    strategyVersion: '0.1.0',
+    inputEventId: event.eventId,
+    symbol: event.symbol,
+    signal,
+    confidence: tickIndex === 1 ? 0.68 : 0.55,
+    featuresUsed: ['demo_price_sequence', 'paper_only_fixture'],
+    createdAt: event.exchangeTimestamp,
+  }];
+}
 
 function createTick(sequence: number, last: string, timestamp: string): NormalizedMarketEvent {
   return NormalizedMarketEventSchema.parse({
@@ -216,8 +244,9 @@ function buildObservation(args: {
   tickEvent: NormalizedMarketEvent;
   runId: string;
   tickIndex: number;
+  recentSignals: StrategySignal[];
 }): AgentObservation {
-  const { agent, broker, tickEvent, runId, tickIndex } = args;
+  const { agent, broker, tickEvent, runId, tickIndex, recentSignals } = args;
   const timestamp = tickEvent.exchangeTimestamp;
   const portfolio = broker.getPortfolioSummary(timestamp);
   const riskState = buildRiskState(runId, agent.agentId, portfolio, timestamp);
@@ -241,7 +270,7 @@ function buildObservation(args: {
     },
     portfolio,
     openOrders: broker.getOpenOrders(),
-    recentSignals: [],
+    recentSignals,
     recentTrades: [],
     riskState,
     allowedActions: ['NOOP', 'PLACE_MARKET_ORDER'],
