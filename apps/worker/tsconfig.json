@@ -5,7 +5,12 @@
     "module": "NodeNext",
     "moduleResolution": "NodeNext",
     "outDir": "dist",
-    "rootDir": "src"
+    "rootDir": "src",
+    "paths": {
+      "@arena/core": ["../../packages/core/dist/index.d.ts"],
+      "@arena/db": ["../../packages/db/dist/index.d.ts"],
+      "@arena/feeds": ["../../packages/feeds/dist/index.d.ts"]
+    }
   },
   "include": ["src"]
 }

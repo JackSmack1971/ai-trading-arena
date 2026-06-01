@@ -6,7 +6,9 @@ export default defineConfig({
   test: {
     passWithNoTests: true,
     alias: {
-      "@arena/core": "F:/ai-trading-arena/packages/core/src/index.ts"
+      "@arena/core": "F:/ai-trading-arena/packages/core/src/index.ts",
+      "@arena/db": "F:/ai-trading-arena/packages/db/src/index.ts",
+      "@arena/feeds": "F:/ai-trading-arena/packages/feeds/src/index.ts",
     },
     coverage: {
       provider: "v8",
