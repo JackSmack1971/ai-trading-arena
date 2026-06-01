@@ -13,9 +13,6 @@
     "test": "vitest run --passWithNoTests"
   },
   "dependencies": {
-    "@arena/core": "workspace:*",
-    "@arena/db": "workspace:*",
-    "@arena/feeds": "workspace:*",
     "pino": "^9.5.0"
   }
 }
