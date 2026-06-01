@@ -90,7 +90,8 @@ export interface StrategyManifest {
   version: string;
   entry: string;
   permissions: StrategyManifestPermissions;
-  inputs?: Record<string, any>;
+  /** Per-strategy typed inputs are validated separately via validateManifestInputs. */
+  inputs?: Record<string, any> | undefined;
 }
 
 export type NormalizedEventType =

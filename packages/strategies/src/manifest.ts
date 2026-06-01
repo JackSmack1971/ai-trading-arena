@@ -1,5 +1,6 @@
 import { readFileSync } from 'node:fs';
 import { parse } from 'yaml';
+import { z } from 'zod';
 import { StrategyManifestSchema } from './schemas.js';
 import type { StrategyManifest } from './types.js';
 
@@ -31,4 +32,18 @@ export function loadManifest(manifestPath: string): StrategyManifest {
 
 export function parseManifestYaml(yaml: string): StrategyManifest {
   return parseResult('<string>', parse(yaml) as unknown);
+}
+
+export function validateManifestInputs<T>(
+  manifest: StrategyManifest,
+  inputsSchema: z.ZodType<T>,
+): T {
+  const result = inputsSchema.safeParse(manifest.inputs ?? {});
+  if (!result.success) {
+    const issues = result.error.issues.map(
+      (issue) => `${issue.path.join('.')}: ${issue.message}`,
+    );
+    throw new ManifestValidationError(manifest.id, issues);
+  }
+  return result.data;
 }

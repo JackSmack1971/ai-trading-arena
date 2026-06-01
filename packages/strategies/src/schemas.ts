@@ -13,8 +13,10 @@ export const StrategyManifestSchema = z.object({
   version: z.string().min(1),
   entry: z.string().min(1),
   permissions: StrategyManifestPermissionsSchema,
-  inputs: z.record(z.unknown()).optional(),
+  inputs: z.record(z.string(), z.unknown()).optional(),
 });
+
+export type StrategyInputsSchema = z.ZodType<Record<string, unknown>>;
 
 export const StrategySignalSchema = z.object({
   signalId: z.string().min(1),

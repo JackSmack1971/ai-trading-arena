@@ -1,4 +1,5 @@
 import { randomUUID } from 'node:crypto';
+import { strategyLogger } from './logger.js';
 import { StrategySignalSchema } from './schemas.js';
 import type {
   BarData,
@@ -290,6 +291,11 @@ export class StrategyExecutor {
     marketState: MarketStateSummary,
     event: NormalizedMarketEvent,
   ): StrategyContext {
+    const logger = strategyLogger.child({
+      agentId: entry.agentId,
+      strategyId: entry.descriptor.id,
+      runId: `run-${entry.agentId}`,
+    });
     return Object.freeze({
       agentId: entry.agentId,
       runId: `run-${entry.agentId}`,
@@ -298,13 +304,7 @@ export class StrategyExecutor {
       portfolio: Object.freeze({ ...this._portfolio }),
       marketState: Object.freeze(marketState),
       log(message: string, data?: Record<string, unknown>): void {
-        // Telemetry hook — in production this routes to Pino/OTEL
-        const prefix = `[strategy:${entry.descriptor.id}]`;
-        if (data !== undefined) {
-          console.log(prefix, message, data);
-        } else {
-          console.log(prefix, message);
-        }
+        logger.info(data ?? {}, message);
       },
     });
   }
@@ -314,6 +314,11 @@ export class StrategyExecutor {
     runId: string,
     nowMs: number,
   ): StrategyContext {
+    const logger = strategyLogger.child({
+      agentId: entry.agentId,
+      strategyId: entry.descriptor.id,
+      runId,
+    });
     const emptyMarketState: MarketStateSummary = {
       symbol: 'NONE',
       bid: '0',
@@ -333,12 +338,7 @@ export class StrategyExecutor {
       portfolio: Object.freeze({ ...this._portfolio }),
       marketState: Object.freeze(emptyMarketState),
       log(message: string, data?: Record<string, unknown>): void {
-        const prefix = `[strategy:${entry.descriptor.id}]`;
-        if (data !== undefined) {
-          console.log(prefix, message, data);
-        } else {
-          console.log(prefix, message);
-        }
+        logger.info(data ?? {}, message);
       },
     });
   }

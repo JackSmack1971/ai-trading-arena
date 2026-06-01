@@ -1,0 +1,9 @@
+id: clean-fixture
+name: Clean Fixture
+version: 0.1.0
+entry: strategy.ts
+permissions:
+  network: false
+  filesystem: false
+  can_emit_orders: false
+  can_emit_signals: true

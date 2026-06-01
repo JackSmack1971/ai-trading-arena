@@ -21,7 +21,12 @@ export { StrategyManifestSchema, StrategyManifestPermissionsSchema, StrategySign
 export { computeEma, computeRsi, computeBollingerBands } from './indicators.js';
 export type { BollingerBands } from './indicators.js';
 
-export { ManifestValidationError, loadManifest, parseManifestYaml } from './manifest.js';
+export {
+  ManifestValidationError,
+  loadManifest,
+  parseManifestYaml,
+  validateManifestInputs,
+} from './manifest.js';
 
 export { StrategyRegistry } from './registry.js';
 export { defaultRegistry, createDefaultRegistry } from './default-registry.js';
@@ -32,6 +37,12 @@ export {
   loadStrategy,
 } from './loader.js';
 export type { LoadedStrategy } from './loader.js';
+
+export { strategyLogger } from './logger.js';
+export {
+  STRATEGY_SIGNAL_CREATED_TYPE,
+  toStrategySignalEvent,
+} from './signal-events.js';
 
 export {
   StrategyExecutor,

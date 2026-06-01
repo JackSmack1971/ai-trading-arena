@@ -37,6 +37,22 @@ describe('computeEma', () => {
   });
 });
 
+describe('STRAT-02 static datasets: EMA', () => {
+  it('matches the hand-computed SMA seed and smoothing values', () => {
+    const closes = [22, 24, 26, 28, 30];
+    const result = computeEma(closes, 3);
+
+    expect(result[0]).toBeUndefined();
+    expect(result[1]).toBeUndefined();
+    // Seed = (22 + 24 + 26) / 3 = 24
+    expect(result[2]).toBeCloseTo(24, 6);
+    // k = 2 / (3 + 1) = 0.5, so 28 * 0.5 + 24 * 0.5 = 26
+    expect(result[3]).toBeCloseTo(26, 6);
+    // 30 * 0.5 + 26 * 0.5 = 28
+    expect(result[4]).toBeCloseTo(28, 6);
+  });
+});
+
 describe('computeRsi', () => {
   it('returns undefined when closes < period + 1', () => {
     expect(computeRsi([1, 2, 3], 14)).toBeUndefined();
@@ -65,6 +81,29 @@ describe('computeRsi', () => {
   });
 });
 
+describe('STRAT-02 static datasets: RSI', () => {
+  it('returns exactly 50 for a flat series', () => {
+    expect(computeRsi(new Array(20).fill(100), 14)).toBe(50);
+  });
+
+  it('returns exactly 100 for an all-gains series', () => {
+    const closes = Array.from({ length: 20 }, (_, i) => 100 + i);
+    expect(computeRsi(closes, 14)).toBe(100);
+  });
+
+  it('matches a precomputed Wilder RSI reference value', () => {
+    const closes = [
+      44.34, 44.09, 44.15, 43.61, 44.33, 44.83, 45.1,
+      45.42, 45.84, 46.08, 45.89, 46.03, 45.61, 46.28,
+      46.28, 46, 46.03, 46.41, 46.22, 45.64, 46.21,
+    ];
+    const rsi = computeRsi(closes, 14);
+
+    // Wilder-smoothed RSI reference for this series is 62.8807...
+    expect(rsi).toBeCloseTo(62.88, 2);
+  });
+});
+
 describe('computeBollingerBands', () => {
   it('returns undefined when closes < period', () => {
     expect(computeBollingerBands([1, 2, 3], 20, 2)).toBeUndefined();
@@ -90,5 +129,18 @@ describe('computeBollingerBands', () => {
     const bands = computeBollingerBands(closes, 20, 2);
     expect(bands).toBeDefined();
     expect(1100).toBeGreaterThan(bands!.upper);
+  });
+});
+
+describe('STRAT-02 static dataset: Bollinger Bands', () => {
+  it('matches the canonical population-standard-deviation example', () => {
+    const closes = [2, 4, 4, 4, 5, 5, 7, 9];
+    const bands = computeBollingerBands(closes, 8, 2);
+
+    expect(bands).toBeDefined();
+    // Mean = 5 and population std-dev = 2, which intentionally differs from sample variance.
+    expect(bands!.middle).toBeCloseTo(5, 6);
+    expect(bands!.upper).toBeCloseTo(9, 6);
+    expect(bands!.lower).toBeCloseTo(1, 6);
   });
 });

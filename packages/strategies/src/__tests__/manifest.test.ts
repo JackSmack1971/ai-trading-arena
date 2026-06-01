@@ -1,5 +1,10 @@
 import { describe, expect, it } from 'vitest';
-import { ManifestValidationError, parseManifestYaml } from '../manifest.js';
+import { z } from 'zod';
+import {
+  ManifestValidationError,
+  parseManifestYaml,
+  validateManifestInputs,
+} from '../manifest.js';
 
 const VALID_YAML = `
 id: my-strategy
@@ -92,9 +97,72 @@ inputs:
 `;
     const manifest = parseManifestYaml(yaml);
     expect(manifest.inputs).toBeDefined();
-    expect(manifest.inputs!.symbol).toBe('BTC-USD');
-    expect(manifest.inputs!.period).toBe(14);
-    expect(manifest.inputs!.oversold).toBe(28);
-    expect(manifest.inputs!.overbought).toBe(72);
+    expect(manifest.inputs!['symbol']).toBe('BTC-USD');
+    expect(manifest.inputs!['period']).toBe(14);
+    expect(manifest.inputs!['oversold']).toBe(28);
+    expect(manifest.inputs!['overbought']).toBe(72);
+  });
+
+  it('validateManifestInputs returns typed values for valid manifest inputs', () => {
+    const yaml = `${VALID_YAML}
+inputs:
+  symbol: BTC-USD
+  period: 14
+`;
+    const manifest = parseManifestYaml(yaml);
+
+    const parsed = validateManifestInputs(
+      manifest,
+      z.object({
+        symbol: z.string(),
+        period: z.number(),
+      }),
+    );
+
+    expect(parsed).toEqual({ symbol: 'BTC-USD', period: 14 });
+  });
+
+  it('validateManifestInputs throws when inputs violate the supplied schema', () => {
+    const yaml = `${VALID_YAML}
+inputs:
+  period: abc
+`;
+    const manifest = parseManifestYaml(yaml);
+
+    expect(() =>
+      validateManifestInputs(
+        manifest,
+        z.object({
+          period: z.number(),
+        }),
+      ),
+    ).toThrow(ManifestValidationError);
+  });
+
+  it('validateManifestInputs throws when required inputs are missing', () => {
+    const manifest = parseManifestYaml(VALID_YAML);
+
+    expect(() =>
+      validateManifestInputs(
+        manifest,
+        z.object({
+          period: z.number(),
+        }),
+      ),
+    ).toThrow(ManifestValidationError);
+  });
+
+  it('validateManifestInputs returns defaults for optional schema fields when inputs are missing', () => {
+    const manifest = parseManifestYaml(VALID_YAML);
+
+    const parsed = validateManifestInputs(
+      manifest,
+      z.object({
+        period: z.number().default(14),
+        symbol: z.string().default('BTC-USD'),
+      }),
+    );
+
+    expect(parsed).toEqual({ period: 14, symbol: 'BTC-USD' });
   });
 });

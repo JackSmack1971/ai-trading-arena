@@ -1,5 +1,9 @@
+import { mkdtempSync, mkdirSync, writeFileSync } from 'node:fs';
+import { tmpdir } from 'node:os';
+import { dirname, join, resolve } from 'node:path';
+import { fileURLToPath } from 'node:url';
 import { describe, it, expect } from 'vitest';
-import { scanSource, StrategyLoadRejectedError } from '../loader.js';
+import { loadStrategy, scanSource, StrategyLoadRejectedError } from '../loader.js';
 
 // ---------------------------------------------------------------------------
 // Helper to run scanSource and capture the thrown error
@@ -203,5 +207,114 @@ export const strategy: Strategy = {
 };
     `;
     expectScanToPass(clean);
+  });
+});
+
+describe('T-02-04: Inputs Validation', () => {
+  it('returns resolvedInputs from manifest values when inputsSchema validates', async () => {
+    const dir = mkdtempSync(join(tmpdir(), 'arena-strategy-valid-'));
+    mkdirSync(dir, { recursive: true });
+    writeFileSync(
+      join(dir, 'manifest.yaml'),
+      `id: tmp-valid
+name: Tmp Valid
+version: 0.1.0
+entry: strategy.ts
+permissions:
+  network: false
+  filesystem: false
+  can_emit_orders: false
+  can_emit_signals: true
+inputs:
+  symbol: BTC-USD
+  period: 14
+`,
+    );
+    writeFileSync(
+      join(dir, 'strategy.ts'),
+      `import { z } from 'zod';
+export const inputsSchema = z.object({
+  symbol: z.string(),
+  period: z.number(),
+});
+export const strategy = {
+  id: 'tmp-valid',
+  name: 'Tmp Valid',
+  version: '0.1.0',
+  onStart() {},
+  onMarketEvent() {
+    return [];
+  },
+};
+`,
+    );
+
+    const loaded = await loadStrategy(dir);
+    expect(loaded.resolvedInputs).toEqual({ symbol: 'BTC-USD', period: 14 });
+  });
+
+  it('throws StrategyLoadRejectedError when manifest inputs violate inputsSchema', async () => {
+    const dir = mkdtempSync(join(tmpdir(), 'arena-strategy-invalid-'));
+    mkdirSync(dir, { recursive: true });
+    writeFileSync(
+      join(dir, 'manifest.yaml'),
+      `id: tmp-invalid
+name: Tmp Invalid
+version: 0.1.0
+entry: strategy.ts
+permissions:
+  network: false
+  filesystem: false
+  can_emit_orders: false
+  can_emit_signals: true
+inputs:
+  period: abc
+`,
+    );
+    writeFileSync(
+      join(dir, 'strategy.ts'),
+      `import { z } from 'zod';
+export const inputsSchema = z.object({
+  period: z.number(),
+});
+export const strategy = {
+  id: 'tmp-invalid',
+  name: 'Tmp Invalid',
+  version: '0.1.0',
+  onStart() {},
+  onMarketEvent() {
+    return [];
+  },
+};
+`,
+    );
+
+    await expect(loadStrategy(dir)).rejects.toThrow(StrategyLoadRejectedError);
+  });
+});
+
+describe('T-02-01b: On-disk adversarial loadStrategy', () => {
+  const fixturesDir = resolve(
+    dirname(fileURLToPath(import.meta.url)),
+    'fixtures',
+    'adversarial',
+  );
+
+  it('rejects the fs-import fixture', async () => {
+    const dir = join(fixturesDir, 'fs-import');
+    await expect(loadStrategy(dir)).rejects.toThrow(StrategyLoadRejectedError);
+    await expect(loadStrategy(dir)).rejects.toThrow(/fs/);
+  });
+
+  it('rejects the http-import fixture', async () => {
+    const dir = join(fixturesDir, 'http-import');
+    await expect(loadStrategy(dir)).rejects.toThrow(StrategyLoadRejectedError);
+    await expect(loadStrategy(dir)).rejects.toThrow(/http/);
+  });
+
+  it('loads the clean fixture successfully', async () => {
+    const dir = join(fixturesDir, 'clean');
+    const loaded = await loadStrategy(dir);
+    expect(loaded.strategy.onMarketEvent).toBeTypeOf('function');
   });
 });

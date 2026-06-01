@@ -1,7 +1,8 @@
 import { readFileSync } from 'node:fs';
 import { pathToFileURL } from 'node:url';
-import { resolve, dirname } from 'node:path';
-import { loadManifest } from './manifest.js';
+import { resolve } from 'node:path';
+import type { ZodType } from 'zod';
+import { loadManifest, ManifestValidationError, validateManifestInputs } from './manifest.js';
 import type { Strategy, StrategyManifest } from './types.js';
 
 // ---------------------------------------------------------------------------
@@ -182,6 +183,7 @@ export function scanSource(source: string, filePath: string): void {
 export interface LoadedStrategy {
   strategy: Strategy;
   manifest: StrategyManifest;
+  resolvedInputs: Record<string, unknown>;
 }
 
 /**
@@ -243,5 +245,31 @@ export async function loadStrategy(strategyDir: string): Promise<LoadedStrategy>
     );
   }
 
-  return { strategy, manifest };
+  let resolvedInputs: Record<string, unknown>;
+  const inputsSchema = mod['inputsSchema'];
+  if (
+    typeof inputsSchema === 'object' &&
+    inputsSchema !== null &&
+    'safeParse' in inputsSchema &&
+    typeof inputsSchema.safeParse === 'function'
+  ) {
+    try {
+      resolvedInputs = validateManifestInputs(
+        manifest,
+        inputsSchema as ZodType<Record<string, unknown>>,
+      ) as Record<string, unknown>;
+    } catch (err) {
+      if (err instanceof ManifestValidationError) {
+        throw new StrategyLoadRejectedError(
+          entryPath,
+          `Manifest inputs failed validation: ${err.issues.join('; ')}`,
+        );
+      }
+      throw err;
+    }
+  } else {
+    resolvedInputs = manifest.inputs ?? {};
+  }
+
+  return { strategy, manifest, resolvedInputs };
 }

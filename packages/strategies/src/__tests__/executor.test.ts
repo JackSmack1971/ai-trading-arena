@@ -1,5 +1,6 @@
 import { describe, it, expect, beforeEach } from 'vitest';
 import { StrategyExecutor, DEFAULT_HISTORY_LIMIT, SignalValidationError } from '../executor.js';
+import { STRATEGY_SIGNAL_CREATED_TYPE, toStrategySignalEvent } from '../signal-events.js';
 import type {
   NormalizedMarketEvent,
   PortfolioSummary,
@@ -223,6 +224,7 @@ describe('T-02-07: Signal routing and validation', () => {
     expect(signals[0]!.signal).toBe('long');
     expect(signals[0]!.confidence).toBe(0.8);
     expect(signals[0]!.strategyId).toBe('always-long');
+    expect(toStrategySignalEvent(signals[0]!).type).toBe(STRATEGY_SIGNAL_CREATED_TYPE);
   });
 
   it('throws SignalValidationError when strategy emits malformed signal', async () => {
