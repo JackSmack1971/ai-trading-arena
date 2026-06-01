@@ -41,6 +41,18 @@ export function createDeterministicPaperAgent(config: DeterministicAgentConfig):
         return noopDecision(`${config.name} holds because market orders are not allowed.`, config.confidence);
       }
 
+      const latestSignal = observation.recentSignals.at(-1);
+      if (!latestSignal || latestSignal.signal === 'none') {
+        return noopDecision(`${config.name} holds because no actionable strategy signal is present.`, config.confidence);
+      }
+
+      if (config.side === 'BUY' && latestSignal.signal !== 'long') {
+        return noopDecision(`${config.name} holds because latest signal is ${latestSignal.signal}, not long.`, config.confidence);
+      }
+      if (config.side === 'SELL' && latestSignal.signal !== 'short' && latestSignal.signal !== 'reduce_long') {
+        return noopDecision(`${config.name} holds because latest signal is ${latestSignal.signal}, not sell-oriented.`, config.confidence);
+      }
+
       return AgentDecisionSchema.parse({
         action: 'PLACE_MARKET_ORDER',
         symbol: observation.marketState.symbol,
@@ -53,6 +65,7 @@ export function createDeterministicPaperAgent(config: DeterministicAgentConfig):
             `last=${observation.marketState.last}`,
             `equity=${observation.portfolio.equity}`,
             `drawdown=${observation.riskState.currentDrawdownPct}`,
+            `strategySignal=${latestSignal.strategyId}:${latestSignal.signal}:${latestSignal.confidence}`,
           ],
           invalidation: 'Risk gate rejection or unavailable paper cash invalidates this action.',
           expectedHoldingPeriod: 'single local simulator tick',
