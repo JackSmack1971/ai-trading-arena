@@ -33,7 +33,7 @@ class StubFeedAdapter implements MarketFeedAdapter {
   readonly id = 'coinbase';
   readonly name = 'Stub Coinbase Feed';
   readonly authRequired = false as const;
-  readonly capabilities = ['TICKER'] as const;
+  readonly capabilities: import('@arena/core').FeedCapability[] = ['TICKER'];
   readonly ratePolicy = {
     provider: 'coinbase',
     limits: [{ scope: 'request' as const, max: 5, intervalMs: 1000 }],
