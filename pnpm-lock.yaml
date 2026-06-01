@@ -54,6 +54,15 @@ importers:
 
   apps/worker:
     dependencies:
+      '@arena/core':
+        specifier: workspace:*
+        version: link:../../packages/core
+      '@arena/db':
+        specifier: workspace:*
+        version: link:../../packages/db
+      '@arena/feeds':
+        specifier: workspace:*
+        version: link:../../packages/feeds
       pino:
         specifier: ^9.5.0
         version: 9.14.0

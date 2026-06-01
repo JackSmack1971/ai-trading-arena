@@ -8,8 +8,8 @@ Workflow scripts provide deterministic checks or orchestration helpers.
 - `arena-audit.js` verifies backticked framework evidence paths in `docs/FRAMEWORK_TRACEABILITY.md` still resolve.
 - `arena-audit.js` verifies project-local hook registration for the hard guardrails referenced by the framework.
 - `arena-audit.js` verifies destructive deny coverage in `.claude/settings.json`.
-- `arena-audit.js` verifies `.claude/settings.json`, `.claude/settings.local.json`, and `.claude/security-patterns.json` remain valid JSON.
+- `arena-audit.js` verifies `.claude/settings.json` and `.claude/security-patterns.json` remain valid JSON, and validates `.claude/settings.local.json` only when the optional local override file exists.
 - `arena-audit.js` verifies the project-level security guidance files required for scanner-backed review of simulator-boundary and secret-handling changes.
 - `arena-audit.js` verifies the `.claude/worktrees/` runtime parent exists when the framework advertises isolated worktree support.
-- `arena-audit.js` verifies the local settings override surface exists and that project `.gitignore` rules keep local-only settings and transient worktrees out of shared framework state.
+- `arena-audit.js` verifies project `.gitignore` rules keep optional local-only settings and transient worktrees out of shared framework state without requiring ignored local override files in clean checkouts.
 - Count outputs exclude support docs such as `README.md` so the reported totals reflect actual reusable framework artifacts.
