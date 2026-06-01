@@ -13,6 +13,8 @@
     "test": "vitest run --passWithNoTests"
   },
   "dependencies": {
+    "@arena/core": "workspace:*",
+    "bottleneck": "^2.19.5",
     "ws": "^8.18.0",
     "zod": "^4.4.3"
   },

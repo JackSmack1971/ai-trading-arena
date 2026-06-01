@@ -6,7 +6,9 @@ import { CashLedger } from './ledger.js';
 import { computeLimitFill, computeMarketFill } from './fills.js';
 import { PositionTracker } from './positions.js';
 import { PnLTracker } from './pnl.js';
+import { PaperRiskGate } from './risk-gate.js';
 import type { FeeModel } from './fee-model.js';
+import type { RiskConfig, RiskEvent } from '@arena/core';
 import type { SlippageModel } from './slippage-model.js';
 import type {
   BrokerEventHandler,
@@ -27,6 +29,7 @@ export interface BrokerConfig {
   feeModel?: FeeModel;
   slippageModel?: SlippageModel;
   onEvent?: BrokerEventHandler;
+  riskConfig?: RiskConfig;
 }
 
 export class PaperBroker {
@@ -39,6 +42,7 @@ export class PaperBroker {
   private readonly feeModel: FeeModel;
   private readonly slippageModel: SlippageModel;
   private readonly onEvent: BrokerEventHandler | undefined;
+  private readonly riskGate: PaperRiskGate;
 
   private readonly orders: Map<string, PaperOrder> = new Map();
   private readonly openOrders: Map<string, PaperOrder> = new Map();
@@ -46,6 +50,8 @@ export class PaperBroker {
   private totalFeesPaid: MoneyDecimal = ZERO_MONEY;
   private totalSlippagePaid: MoneyDecimal = ZERO_MONEY;
   private tradeCount = 0;
+  private orderAttemptTimestamps: string[] = [];
+  private strategySwitchTimestamps: string[] = [];
 
   constructor(config: BrokerConfig) {
     this.runId = config.runId;
@@ -54,6 +60,7 @@ export class PaperBroker {
     this.feeModel = config.feeModel ?? new TakerMakerFeeModel(DEFAULT_FEE_CONFIG);
     this.slippageModel = config.slippageModel ?? new SpreadSlippageModel();
     this.onEvent = config.onEvent;
+    this.riskGate = new PaperRiskGate(config.riskConfig);
     this.ledger = new CashLedger(config.startingBalance);
     this.posTracker = new PositionTracker(config.runId, config.agentId);
     this.pnlTracker = new PnLTracker(config.startingBalance);
@@ -62,6 +69,10 @@ export class PaperBroker {
 
   placeMarketOrder(req: PlaceOrderRequest): PaperOrder {
     const now = new Date().toISOString();
+    const riskRejection = this.evaluateOrderRisk(req, now);
+    if (riskRejection) {
+      return this.rejectOrder(req, now, riskRejection.reason, riskRejection.event);
+    }
 
     // Check available balance covers estimated cost (notional + max taker fee).
     const notional = new MoneyDecimal(req.quantityUsd);
@@ -99,6 +110,11 @@ export class PaperBroker {
       this.orders.set(order.orderId, order);
       this.emit({ type: 'PAPER_ORDER_REJECTED', orderId: order.orderId, reason: 'MISSING_LIMIT_PRICE' });
       return order;
+    }
+
+    const riskRejection = this.evaluateOrderRisk({ ...req, orderType: 'LIMIT' }, now);
+    if (riskRejection) {
+      return this.rejectOrder({ ...req, orderType: 'LIMIT' }, now, riskRejection.reason, riskRejection.event);
     }
 
     // For LIMIT BUY: reserve enough cash to cover notional + max maker fee.
@@ -330,6 +346,70 @@ export class PaperBroker {
       currentDrawdownPct: currentDrawdownPct.toString(),
       snapshotAt: timestamp,
     };
+  }
+
+  recordStrategySwitch(strategyId: string, timestamp = new Date().toISOString()): RiskEvent | null {
+    this.pruneStrategySwitches(timestamp);
+    this.strategySwitchTimestamps.push(timestamp);
+    const decision = this.riskGate.evaluateStrategySwitch({
+      runId: this.runId,
+      agentId: this.agentId,
+      timestamp,
+      strategyId,
+      strategySwitchesThisHour: this.strategySwitchTimestamps.length,
+    });
+    if (decision.decision === 'REJECTED') {
+      this.emit({ type: 'RISK_CHECK_REJECTED', riskEvent: decision.event });
+      return decision.event;
+    }
+    return null;
+  }
+
+  private evaluateOrderRisk(req: PlaceOrderRequest, timestamp: string): { reason: string; event: RiskEvent } | null {
+    this.pruneOrderAttempts(timestamp);
+    const projectedOrdersThisMinute = this.orderAttemptTimestamps.length + 1;
+    const decision = this.riskGate.evaluateOrder({
+      runId: this.runId,
+      agentId: this.agentId,
+      timestamp,
+      request: req,
+      portfolio: this.getPortfolioSummary(timestamp),
+      availableCash: this.ledger.getAvailable().toString(),
+      positions: this.posTracker.getAllPositions(),
+      ordersThisMinute: projectedOrdersThisMinute,
+      strategySwitchesThisHour: this.currentStrategySwitches(timestamp),
+    });
+    this.orderAttemptTimestamps.push(timestamp);
+    if (decision.decision === 'REJECTED') {
+      this.emit({ type: 'RISK_CHECK_REJECTED', riskEvent: decision.event });
+      return { reason: decision.event.ruleId, event: decision.event };
+    }
+    return null;
+  }
+
+  private rejectOrder(req: PlaceOrderRequest, timestamp: string, reason: string, riskEvent?: RiskEvent): PaperOrder {
+    const order = this.makeOrder(req, 'REJECTED', timestamp);
+    this.orders.set(order.orderId, order);
+    const event: BrokerEventPayload = riskEvent
+      ? { type: 'PAPER_ORDER_REJECTED', orderId: order.orderId, reason, riskEvent }
+      : { type: 'PAPER_ORDER_REJECTED', orderId: order.orderId, reason };
+    this.emit(event);
+    return order;
+  }
+
+  private pruneOrderAttempts(timestamp: string): void {
+    const cutoff = Date.parse(timestamp) - 60_000;
+    this.orderAttemptTimestamps = this.orderAttemptTimestamps.filter((attemptedAt) => Date.parse(attemptedAt) > cutoff);
+  }
+
+  private pruneStrategySwitches(timestamp: string): void {
+    const cutoff = Date.parse(timestamp) - 3_600_000;
+    this.strategySwitchTimestamps = this.strategySwitchTimestamps.filter((switchedAt) => Date.parse(switchedAt) > cutoff);
+  }
+
+  private currentStrategySwitches(timestamp: string): number {
+    this.pruneStrategySwitches(timestamp);
+    return this.strategySwitchTimestamps.length;
   }
 
   private makeOrder(req: PlaceOrderRequest, status: PaperOrder['status'], timestamp: string): PaperOrder {

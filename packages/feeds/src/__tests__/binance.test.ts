@@ -6,14 +6,18 @@ import { WebSocket } from 'ws';
 vi.mock('ws', () => {
   const mockSend = vi.fn();
   const mockClose = vi.fn();
+  const mockPing = vi.fn();
+  const mockTerminate = vi.fn();
   
+  type MockListener = (...args: unknown[]) => void;
+
   class MockWebSocket {
     static OPEN = 1;
     static CLOSED = 3;
     static lastInstance: any = null;
-    listeners: Record<string, Function[]> = {};
+    listeners: Record<string, MockListener[]> = {};
 
-    constructor(url: string) {
+    constructor(_url: string) {
       MockWebSocket.lastInstance = this;
       setTimeout(() => {
         if (this.listeners['open']) {
@@ -22,7 +26,7 @@ vi.mock('ws', () => {
       }, 0);
     }
 
-    on(event: string, callback: Function) {
+    on(event: string, callback: MockListener) {
       if (!this.listeners[event]) {
         this.listeners[event] = [];
       }
@@ -31,6 +35,8 @@ vi.mock('ws', () => {
 
     send = mockSend;
     close = mockClose;
+    ping = mockPing;
+    terminate = mockTerminate;
     readyState = 1; // OPEN
   }
 
@@ -55,7 +61,9 @@ describe('BinanceFeedAdapter Tests', () => {
     await vi.advanceTimersByTimeAsync(1);
     await connectPromise;
 
-    await adapter.subscribe(['BTC-USDT']);
+    const subscribePromise = adapter.subscribe(['BTC-USDT']);
+    await vi.advanceTimersByTimeAsync(1000);
+    await subscribePromise;
     
     const mockWS = (WebSocket as any).lastInstance;
     expect(mockWS).toBeDefined();
@@ -77,7 +85,9 @@ describe('BinanceFeedAdapter Tests', () => {
     const mockWS = (WebSocket as any).lastInstance;
     
     // Subscribe to symbol first to setup mapping
-    await adapter.subscribe(['BTC-USDT']);
+    const subscribePromise = adapter.subscribe(['BTC-USDT']);
+    await vi.advanceTimersByTimeAsync(1000);
+    await subscribePromise;
 
     // Simulate Binance trade message
     const rawTrade = {
@@ -111,7 +121,9 @@ describe('BinanceFeedAdapter Tests', () => {
     const mockWS = (WebSocket as any).lastInstance;
 
     // Subscribe — symbolMap should use global replace: 'btcperpusd'
-    await adapter.subscribe(['BTC-PERP-USD']);
+    const subscribePromise = adapter.subscribe(['BTC-PERP-USD']);
+    await vi.advanceTimersByTimeAsync(1000);
+    await subscribePromise;
 
     const subscribeCall = mockWS.send.mock.calls.find((c: any[]) => {
       const msg = JSON.parse(c[0]);
@@ -140,4 +152,17 @@ describe('BinanceFeedAdapter Tests', () => {
     expect(receivedEvents).toHaveLength(1);
     expect(receivedEvents[0].symbol).toBe('BTC-PERP-USD');
   });
+
+  it('terminates stale websocket connections after a missed pong heartbeat', async () => {
+    const connectPromise = adapter.connect({ symbols: ['BTC-USD'] });
+    await vi.advanceTimersByTimeAsync(1);
+    await connectPromise;
+
+    const mockWS = (WebSocket as any).lastInstance;
+    await vi.advanceTimersByTimeAsync(60_000);
+
+    expect(mockWS.ping).toHaveBeenCalled();
+    expect(mockWS.terminate).toHaveBeenCalled();
+  });
+
 });

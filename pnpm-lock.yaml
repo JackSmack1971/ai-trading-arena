@@ -60,7 +60,11 @@ importers:
 
   packages/agents: {}
 
-  packages/broker-paper: {}
+  packages/broker-paper:
+    dependencies:
+      '@arena/core':
+        specifier: workspace:*
+        version: link:../core
 
   packages/core:
     dependencies:
@@ -107,6 +111,12 @@ importers:
 
   packages/feeds:
     dependencies:
+      '@arena/core':
+        specifier: workspace:*
+        version: link:../core
+      bottleneck:
+        specifier: ^2.19.5
+        version: 2.19.5
       ws:
         specifier: ^8.18.0
         version: 8.21.0
@@ -118,7 +128,11 @@ importers:
         specifier: ^8.5.10
         version: 8.18.1
 
-  packages/strategies: {}
+  packages/strategies:
+    dependencies:
+      '@arena/core':
+        specifier: workspace:*
+        version: link:../core
 
   packages/telemetry: {}
 
@@ -1377,6 +1391,9 @@ packages:
 
   bl@4.1.0:
     resolution: {integrity: sha512-1W07cM9gS6DcLperZfFSj+bWLtaPGSOHWhPiGzXmvVJbRLdG82sH/Kn8EtW1VqWVA54AKf2h5k5BbnIbwF3h6w==}
+
+  bottleneck@2.19.5:
+    resolution: {integrity: sha512-VHiNCbI1lKdl44tGrhNfU3lup0Tj/ZBMJB5/2ZbNXRCPuRCO7ed2mgcK4r17y+KB2EfuYuRaVlwNbAeaWGSpbw==}
 
   brace-expansion@1.1.15:
     resolution: {integrity: sha512-EwOCDEex4quD37XhqM3omwtMoJjr//isUZz1JopUNWms+4Z2ViyM/k1YIRePpoVNnQhENnxtFjLaxNHrT7xIUg==}
@@ -3426,6 +3443,8 @@ snapshots:
       buffer: 5.7.1
       inherits: 2.0.4
       readable-stream: 3.6.2
+
+  bottleneck@2.19.5: {}
 
   brace-expansion@1.1.15:
     dependencies:

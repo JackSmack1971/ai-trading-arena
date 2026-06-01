@@ -6,14 +6,18 @@ import { WebSocket } from 'ws';
 vi.mock('ws', () => {
   const mockSend = vi.fn();
   const mockClose = vi.fn();
+  const mockPing = vi.fn();
+  const mockTerminate = vi.fn();
   
+  type MockListener = (...args: unknown[]) => void;
+
   class MockWebSocket {
     static OPEN = 1;
     static CLOSED = 3;
     static lastInstance: any = null;
-    listeners: Record<string, Function[]> = {};
+    listeners: Record<string, MockListener[]> = {};
 
-    constructor(url: string) {
+    constructor(_url: string) {
       MockWebSocket.lastInstance = this;
       setTimeout(() => {
         if (this.listeners['open']) {
@@ -22,7 +26,7 @@ vi.mock('ws', () => {
       }, 0);
     }
 
-    on(event: string, callback: Function) {
+    on(event: string, callback: MockListener) {
       if (!this.listeners[event]) {
         this.listeners[event] = [];
       }
@@ -31,6 +35,8 @@ vi.mock('ws', () => {
 
     send = mockSend;
     close = mockClose;
+    ping = mockPing;
+    terminate = mockTerminate;
     readyState = 1; // OPEN
   }
 
@@ -57,7 +63,9 @@ describe('CoinbaseFeedAdapter Tests', () => {
     await connectPromise;
 
     // Verify subscription call
-    await adapter.subscribe(['BTC-USD']);
+    const subscribePromise = adapter.subscribe(['BTC-USD']);
+    await vi.advanceTimersByTimeAsync(1000);
+    await subscribePromise;
     
     const mockWS = (WebSocket as any).lastInstance;
     expect(mockWS).toBeDefined();
@@ -96,4 +104,17 @@ describe('CoinbaseFeedAdapter Tests', () => {
     expect(events[0].last).toBe('55000.00');
     expect(events[0].symbol).toBe('BTC-USD');
   });
+
+  it('terminates stale websocket connections after a missed pong heartbeat', async () => {
+    const connectPromise = adapter.connect({ symbols: ['BTC-USD'] });
+    await vi.advanceTimersByTimeAsync(1);
+    await connectPromise;
+
+    const mockWS = (WebSocket as any).lastInstance;
+    await vi.advanceTimersByTimeAsync(60_000);
+
+    expect(mockWS.ping).toHaveBeenCalled();
+    expect(mockWS.terminate).toHaveBeenCalled();
+  });
+
 });
