@@ -6,7 +6,9 @@ import { WebSocket } from 'ws';
 vi.mock('ws', () => {
   const mockSend = vi.fn();
   const mockClose = vi.fn();
-  
+  const mockPing = vi.fn();
+  const mockTerminate = vi.fn();
+
   class MockWebSocket {
     static OPEN = 1;
     static CLOSED = 3;
@@ -31,6 +33,8 @@ vi.mock('ws', () => {
 
     send = mockSend;
     close = mockClose;
+    ping = mockPing;
+    terminate = mockTerminate;
     readyState = 1; // OPEN
   }
 
@@ -51,16 +55,16 @@ describe('BinanceFeedAdapter Tests', () => {
 
   it('should connect and subscribe to trade streams', async () => {
     const connectPromise = adapter.connect({ symbols: ['BTC-USDT'] });
-    
+
     await vi.advanceTimersByTimeAsync(1);
     await connectPromise;
 
     await adapter.subscribe(['BTC-USDT']);
-    
+
     const mockWS = (WebSocket as any).lastInstance;
     expect(mockWS).toBeDefined();
     expect(mockWS.send).toHaveBeenCalled();
-    
+
     const sentData = JSON.parse(mockWS.send.mock.calls[0][0]);
     expect(sentData.method).toBe('SUBSCRIBE');
     expect(sentData.params).toContain('btcusdt@trade');
@@ -75,7 +79,7 @@ describe('BinanceFeedAdapter Tests', () => {
     await connectPromise;
 
     const mockWS = (WebSocket as any).lastInstance;
-    
+
     // Subscribe to symbol first to setup mapping
     await adapter.subscribe(['BTC-USDT']);
 
@@ -98,5 +102,69 @@ describe('BinanceFeedAdapter Tests', () => {
     expect(events[0].last).toBe('54000.50');
     expect(events[0].symbol).toBe('BTC-USDT'); // Should map back from BTCUSDT to BTC-USDT
     expect(events[0].volume).toBe('0.12');
+  });
+
+  it('sends ping after 30s heartbeat interval', async () => {
+    const connectPromise = adapter.connect({ symbols: [] });
+    await vi.advanceTimersByTimeAsync(1);
+    await connectPromise;
+
+    const mockWS = (WebSocket as any).lastInstance;
+    expect(mockWS.ping).not.toHaveBeenCalled();
+
+    await vi.advanceTimersByTimeAsync(30_000);
+    expect(mockWS.ping).toHaveBeenCalledTimes(1);
+  });
+
+  it('pong handler resets isAlive so subsequent ping is sent instead of terminate', async () => {
+    const connectPromise = adapter.connect({ symbols: [] });
+    await vi.advanceTimersByTimeAsync(1);
+    await connectPromise;
+
+    const mockWS = (WebSocket as any).lastInstance;
+
+    // First heartbeat tick: ping sent, isAlive set to false
+    await vi.advanceTimersByTimeAsync(30_000);
+    expect(mockWS.ping).toHaveBeenCalledTimes(1);
+    expect(mockWS.terminate).not.toHaveBeenCalled();
+
+    // Simulate pong received — resets isAlive
+    const pongHandler = mockWS.listeners['pong']?.[0];
+    expect(pongHandler).toBeDefined();
+    pongHandler();
+
+    // Second heartbeat tick: isAlive was true, so ping again (not terminate)
+    await vi.advanceTimersByTimeAsync(30_000);
+    expect(mockWS.ping).toHaveBeenCalledTimes(2);
+    expect(mockWS.terminate).not.toHaveBeenCalled();
+  });
+
+  it('missed pong causes terminate and schedules reconnect', async () => {
+    const connectPromise = adapter.connect({ symbols: [] });
+    await vi.advanceTimersByTimeAsync(1);
+    await connectPromise;
+
+    const mockWS = (WebSocket as any).lastInstance;
+
+    // First tick: ping sent, isAlive = false (no pong received)
+    await vi.advanceTimersByTimeAsync(30_000);
+    expect(mockWS.ping).toHaveBeenCalledTimes(1);
+
+    // Second tick: isAlive still false → terminate
+    await vi.advanceTimersByTimeAsync(30_000);
+    expect(mockWS.terminate).toHaveBeenCalledTimes(1);
+  });
+
+  it('disconnect stops heartbeat', async () => {
+    const connectPromise = adapter.connect({ symbols: [] });
+    await vi.advanceTimersByTimeAsync(1);
+    await connectPromise;
+
+    await adapter.disconnect();
+
+    const mockWS = (WebSocket as any).lastInstance;
+    // Advance past heartbeat interval — no ping should be sent after disconnect
+    await vi.advanceTimersByTimeAsync(30_000);
+    expect(mockWS.ping).not.toHaveBeenCalled();
   });
 });

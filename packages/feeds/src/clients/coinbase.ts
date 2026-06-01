@@ -9,6 +9,8 @@ import type {
 import { normalizeCoinbaseTick } from '../normalizers/coinbase.js';
 import { feedLogger } from '../logger.js';
 
+const HEARTBEAT_INTERVAL_MS = 30_000;
+
 export class CoinbaseFeedAdapter implements MarketFeedAdapter {
   readonly id = 'coinbase';
   readonly name = 'Coinbase Pro Feed';
@@ -43,6 +45,10 @@ export class CoinbaseFeedAdapter implements MarketFeedAdapter {
   private reconnectTimer: NodeJS.Timeout | null = null;
   private logger = feedLogger.child({ adapter: 'coinbase' });
 
+  // Heartbeat state
+  private _isAlive = false;
+  private _heartbeatInterval: NodeJS.Timeout | null = null;
+
   connect(config: FeedConfig): Promise<void> {
     this.config = config;
     this.isIntentionallyDisconnected = false;
@@ -63,6 +69,8 @@ export class CoinbaseFeedAdapter implements MarketFeedAdapter {
 
       this.ws.on('open', () => {
         this.reconnectAttempts = 0;
+        this._isAlive = true;
+        this._startHeartbeat();
         this.logger.info({ event: 'feed.connected' }, 'Coinbase WebSocket connected');
 
         // Subscribe to current symbols
@@ -71,6 +79,10 @@ export class CoinbaseFeedAdapter implements MarketFeedAdapter {
         }
 
         if (resolve) resolve();
+      });
+
+      this.ws.on('pong', () => {
+        this._isAlive = true;
       });
 
       this.ws.on('message', (data) => {
@@ -88,6 +100,7 @@ export class CoinbaseFeedAdapter implements MarketFeedAdapter {
       });
 
       this.ws.on('close', () => {
+        this._stopHeartbeat();
         if (!this.isIntentionallyDisconnected) {
           this.logger.warn({ event: 'feed.closed' }, 'Coinbase connection closed unexpectedly, attempting reconnect');
           this.handleReconnect();
@@ -102,6 +115,28 @@ export class CoinbaseFeedAdapter implements MarketFeedAdapter {
       });
     } catch (err) {
       if (reject) reject(err as Error);
+    }
+  }
+
+  private _startHeartbeat(): void {
+    this._stopHeartbeat();
+    this._heartbeatInterval = setInterval(() => {
+      if (!this._isAlive) {
+        this.logger.warn({ event: 'feed.heartbeat_missed' }, 'Coinbase heartbeat missed, terminating socket');
+        this.ws?.terminate();
+        this._stopHeartbeat();
+        this.handleReconnect();
+        return;
+      }
+      this._isAlive = false;
+      this.ws?.ping();
+    }, HEARTBEAT_INTERVAL_MS);
+  }
+
+  private _stopHeartbeat(): void {
+    if (this._heartbeatInterval) {
+      clearInterval(this._heartbeatInterval);
+      this._heartbeatInterval = null;
     }
   }
 
@@ -144,6 +179,7 @@ export class CoinbaseFeedAdapter implements MarketFeedAdapter {
 
   async disconnect(): Promise<void> {
     this.isIntentionallyDisconnected = true;
+    this._stopHeartbeat();
     if (this.reconnectTimer) {
       clearTimeout(this.reconnectTimer);
       this.reconnectTimer = null;

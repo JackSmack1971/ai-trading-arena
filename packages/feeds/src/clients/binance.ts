@@ -9,6 +9,8 @@ import type {
 import { normalizeBinanceTrade } from '../normalizers/binance.js';
 import { feedLogger } from '../logger.js';
 
+const HEARTBEAT_INTERVAL_MS = 30_000;
+
 export class BinanceFeedAdapter implements MarketFeedAdapter {
   readonly id = 'binance';
   readonly name = 'Binance Spot Feed';
@@ -43,6 +45,10 @@ export class BinanceFeedAdapter implements MarketFeedAdapter {
   private reconnectTimer: NodeJS.Timeout | null = null;
   private logger = feedLogger.child({ adapter: 'binance' });
 
+  // Heartbeat state
+  private _isAlive = false;
+  private _heartbeatInterval: NodeJS.Timeout | null = null;
+
   // Track map of binance ticker name (e.g. btcusdt) -> original symbol format (e.g. BTC-USDT)
   private symbolMap: Map<string, string> = new Map();
 
@@ -66,6 +72,8 @@ export class BinanceFeedAdapter implements MarketFeedAdapter {
 
       this.ws.on('open', () => {
         this.reconnectAttempts = 0;
+        this._isAlive = true;
+        this._startHeartbeat();
         this.logger.info({ event: 'feed.connected' }, 'Binance WebSocket connected');
 
         // Subscribe to current symbols
@@ -74,6 +82,10 @@ export class BinanceFeedAdapter implements MarketFeedAdapter {
         }
 
         if (resolve) resolve();
+      });
+
+      this.ws.on('pong', () => {
+        this._isAlive = true;
       });
 
       this.ws.on('message', (data) => {
@@ -97,6 +109,7 @@ export class BinanceFeedAdapter implements MarketFeedAdapter {
       });
 
       this.ws.on('close', () => {
+        this._stopHeartbeat();
         if (!this.isIntentionallyDisconnected) {
           this.logger.warn({ event: 'feed.closed' }, 'Binance connection closed unexpectedly, attempting reconnect');
           this.handleReconnect();
@@ -111,6 +124,28 @@ export class BinanceFeedAdapter implements MarketFeedAdapter {
       });
     } catch (err) {
       if (reject) reject(err as Error);
+    }
+  }
+
+  private _startHeartbeat(): void {
+    this._stopHeartbeat();
+    this._heartbeatInterval = setInterval(() => {
+      if (!this._isAlive) {
+        this.logger.warn({ event: 'feed.heartbeat_missed' }, 'Binance heartbeat missed, terminating socket');
+        this.ws?.terminate();
+        this._stopHeartbeat();
+        this.handleReconnect();
+        return;
+      }
+      this._isAlive = false;
+      this.ws?.ping();
+    }, HEARTBEAT_INTERVAL_MS);
+  }
+
+  private _stopHeartbeat(): void {
+    if (this._heartbeatInterval) {
+      clearInterval(this._heartbeatInterval);
+      this._heartbeatInterval = null;
     }
   }
 
@@ -153,6 +188,7 @@ export class BinanceFeedAdapter implements MarketFeedAdapter {
 
   async disconnect(): Promise<void> {
     this.isIntentionallyDisconnected = true;
+    this._stopHeartbeat();
     if (this.reconnectTimer) {
       clearTimeout(this.reconnectTimer);
       this.reconnectTimer = null;
