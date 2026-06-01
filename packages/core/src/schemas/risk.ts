@@ -56,12 +56,10 @@ export type RiskState = z.infer<typeof RiskStateSchema>;
 export const RiskDecisionSchema = z.enum(['PASSED', 'REJECTED']);
 export type RiskDecision = z.infer<typeof RiskDecisionSchema>;
 
-export const RiskEventSchema = z.object({
+const RiskEventBaseSchema = z.object({
   eventId: z.string().min(1),
   runId: RunIdSchema,
   agentId: AgentIdSchema,
-  ruleId: RiskRuleIdSchema,
-  decision: RiskDecisionSchema,
   requestedAction: z.string().min(1),
   requestedValueUsd: DecimalStringSchema.optional(),
   allowedValueUsd: DecimalStringSchema.optional(),
@@ -69,4 +67,15 @@ export const RiskEventSchema = z.object({
   reason: z.string().min(1).max(500),
   timestamp: TimestampSchema,
 });
+
+export const RiskEventSchema = z.discriminatedUnion('decision', [
+  RiskEventBaseSchema.extend({
+    decision: z.literal('PASSED'),
+    ruleId: RiskRuleIdSchema.optional(),
+  }),
+  RiskEventBaseSchema.extend({
+    decision: z.literal('REJECTED'),
+    ruleId: RiskRuleIdSchema,
+  }),
+]);
 export type RiskEvent = z.infer<typeof RiskEventSchema>;

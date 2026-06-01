@@ -424,6 +424,7 @@ describe('risk gate enforcement', () => {
     expect(firstOrder.status).toBe('OPEN');
     expect(secondOrder.status).toBe('REJECTED');
     expect(strategyRiskEvent?.ruleId).toBe('MAX_STRATEGY_SWITCHES_PER_HOUR');
+    expect(events.some((event) => event.type === 'RISK_CHECK_PASSED' && event.riskEvent.decision === 'PASSED')).toBe(true);
     expect(events.some((event) => event.type === 'RISK_CHECK_REJECTED' && event.riskEvent.ruleId === 'MAX_ORDERS_PER_MINUTE')).toBe(true);
   });
 });

@@ -362,6 +362,7 @@ export class PaperBroker {
       this.emit({ type: 'RISK_CHECK_REJECTED', riskEvent: decision.event });
       return decision.event;
     }
+    this.emit({ type: 'RISK_CHECK_PASSED', riskEvent: decision.event });
     return null;
   }
 
@@ -382,8 +383,9 @@ export class PaperBroker {
     this.orderAttemptTimestamps.push(timestamp);
     if (decision.decision === 'REJECTED') {
       this.emit({ type: 'RISK_CHECK_REJECTED', riskEvent: decision.event });
-      return { reason: decision.event.ruleId, event: decision.event };
+      return { reason: decision.event.ruleId ?? 'RISK_REJECTED', event: decision.event };
     }
+    this.emit({ type: 'RISK_CHECK_PASSED', riskEvent: decision.event });
     return null;
   }
 

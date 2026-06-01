@@ -8,7 +8,7 @@ import type {
 } from '@arena/core';
 import { normalizeCoinbaseTick } from '../normalizers/coinbase.js';
 import { feedLogger } from '../logger.js';
-import { FeedRateLimiter } from '../rate-limiter.js';
+import { getFeedRateLimiter } from '../limiters.js';
 
 export class CoinbaseFeedAdapter implements MarketFeedAdapter {
   readonly id = 'coinbase';
@@ -41,11 +41,10 @@ export class CoinbaseFeedAdapter implements MarketFeedAdapter {
   private maxReconnectAttempts = 10;
   private baseDelay = 1000;
   private isIntentionallyDisconnected = false;
-  private reconnectTimer: NodeJS.Timeout | null = null;
   private heartbeatTimer: NodeJS.Timeout | null = null;
   private isAlive = false;
   private logger = feedLogger.child({ adapter: 'coinbase' });
-  private readonly rateLimiter = new FeedRateLimiter(this.ratePolicy);
+  private readonly rateLimiter = getFeedRateLimiter(this.ratePolicy, 'ws');
 
   connect(config: FeedConfig): Promise<void> {
     this.config = config;
@@ -57,11 +56,6 @@ export class CoinbaseFeedAdapter implements MarketFeedAdapter {
   }
 
   private doConnect(resolve?: () => void, reject?: (err: Error) => void) {
-    if (this.reconnectTimer) {
-      clearTimeout(this.reconnectTimer);
-      this.reconnectTimer = null;
-    }
-
     try {
       this.ws = new WebSocket('wss://ws-feed.exchange.coinbase.com', undefined, { perMessageDeflate: false });
 
@@ -123,7 +117,11 @@ export class CoinbaseFeedAdapter implements MarketFeedAdapter {
       if (!this.ws) return;
       if (!this.isAlive) {
         this.logger.warn({ event: 'feed.heartbeat_failed' }, 'WebSocket heartbeat missed, terminating feed');
+        this.stopHeartbeat();
         this.ws.terminate();
+        if (!this.isIntentionallyDisconnected) {
+          this.handleReconnect();
+        }
         return;
       }
       this.isAlive = false;
@@ -170,25 +168,28 @@ export class CoinbaseFeedAdapter implements MarketFeedAdapter {
       'Reconnecting to Coinbase',
     );
 
-    this.reconnectTimer = setTimeout(() => {
-      void this.rateLimiter.schedule(`reconnect-${this.reconnectAttempts}-${Date.now()}`, () => {
-        this.doConnect();
-      });
-    }, delay);
+    void this.rateLimiter.schedule(
+      {
+        id: `reconnect-${this.reconnectAttempts}-${Date.now()}`,
+        weight: 1,
+        expiration: Math.ceil(delay) + 30_000,
+      },
+      async () => {
+        await new Promise((resolve) => setTimeout(resolve, delay));
+        if (!this.isIntentionallyDisconnected) {
+          this.doConnect();
+        }
+      },
+    );
   }
 
   async disconnect(): Promise<void> {
     this.isIntentionallyDisconnected = true;
-    if (this.reconnectTimer) {
-      clearTimeout(this.reconnectTimer);
-      this.reconnectTimer = null;
-    }
     this.stopHeartbeat();
     if (this.ws) {
       this.ws.close();
       this.ws = null;
     }
-    await this.rateLimiter.stop();
   }
 
   async subscribe(symbols: string[]): Promise<void> {
@@ -228,7 +229,7 @@ export class CoinbaseFeedAdapter implements MarketFeedAdapter {
   }
 
   private scheduleSubscription(symbols: string[], type: 'subscribe' | 'unsubscribe'): Promise<void> {
-    return this.rateLimiter.schedule(`${type}-${symbols.join(',')}-${Date.now()}`, () => {
+    return this.rateLimiter.schedule({ id: `${type}-${symbols.join(',')}-${Date.now()}`, expiration: 30_000 }, () => {
       this.sendSubscription(symbols, type);
     });
   }
