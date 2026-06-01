@@ -158,6 +158,14 @@ describe('appendEvent + replayRun', () => {
     expect(() => appendEvent(db, ev)).toThrow();
   });
 
+  it('UNIQUE(run_id, seq) — duplicate (runId, seq) with different id throws (issue #4)', () => {
+    const ev1 = makeEvent({ runId: 'run-seq-dup', seq: 0, type: 'MARKET_TICK_RECEIVED' });
+    appendEvent(db, ev1);
+    // Same runId + seq but a fresh id — must be rejected by the unique index.
+    const ev2 = makeEvent({ id: 'evt-seq-dup-alt', runId: 'run-seq-dup', seq: 0, type: 'BAR_CLOSED' });
+    expect(() => appendEvent(db, ev2)).toThrow();
+  });
+
   it('payload round-trip preserves JSON fidelity', () => {
     const payload = JSON.stringify({ price: '50000.12345678', volume: '1.00000001', side: 'buy' });
     const ev: InsertEvent = {

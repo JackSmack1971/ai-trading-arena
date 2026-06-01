@@ -1,0 +1,38 @@
+{
+  "version": "6",
+  "dialect": "sqlite",
+  "id": "3a2b1c0d-1234-5678-abcd-ef0123456789",
+  "prevId": "071bf635-0114-49af-98cd-5e46245aabb6",
+  "tables": {
+    "events": {
+      "name": "events",
+      "columns": {
+        "id": { "name": "id", "type": "text", "primaryKey": true, "notNull": true, "autoincrement": false },
+        "run_id": { "name": "run_id", "type": "text", "primaryKey": false, "notNull": true, "autoincrement": false },
+        "seq": { "name": "seq", "type": "integer", "primaryKey": false, "notNull": true, "autoincrement": false },
+        "type": { "name": "type", "type": "text", "primaryKey": false, "notNull": true, "autoincrement": false },
+        "source": { "name": "source", "type": "text", "primaryKey": false, "notNull": true, "autoincrement": false },
+        "timestamp": { "name": "timestamp", "type": "text", "primaryKey": false, "notNull": true, "autoincrement": false },
+        "payload_json": { "name": "payload_json", "type": "text", "primaryKey": false, "notNull": true, "autoincrement": false },
+        "payload_hash": { "name": "payload_hash", "type": "text", "primaryKey": false, "notNull": true, "autoincrement": false },
+        "previous_hash": { "name": "previous_hash", "type": "text", "primaryKey": false, "notNull": false, "autoincrement": false },
+        "created_at": { "name": "created_at", "type": "text", "primaryKey": false, "notNull": true, "autoincrement": false }
+      },
+      "indexes": {
+        "events_run_seq_unique": {
+          "name": "events_run_seq_unique",
+          "columns": ["run_id", "seq"],
+          "isUnique": true
+        }
+      },
+      "foreignKeys": {},
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "checkConstraints": {}
+    }
+  },
+  "views": {},
+  "enums": {},
+  "_meta": { "schemas": {}, "tables": {}, "columns": {} },
+  "internal": { "indexes": {} }
+}
