@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { MoneyDecimal } from '../money/decimal.js';
 import { PaperBroker } from '../broker.js';
+import type { RiskConfig } from '@arena/core';
 import { PositionTracker } from '../positions.js';
 import type { BrokerEventPayload, PaperFill } from '../types.js';
 
@@ -10,8 +11,20 @@ const T3 = '2024-01-01T00:02:00.000Z';
 const T4 = '2024-01-01T00:03:00.000Z';
 const T5 = '2024-01-01T00:04:00.000Z';
 
+const LENIENT_RISK_CONFIG: RiskConfig = {
+  maxPositionPct: '100',
+  maxSymbolExposurePct: '100',
+  maxTotalExposurePct: '100',
+  maxDrawdownPct: '100',
+  maxOrdersPerMinute: 100,
+  maxStrategySwitchesPerHour: 100,
+  allowNegativeCash: false,
+  allowLeverage: false,
+  allowRealExecution: false,
+};
+
 function makeBroker(balance = '10000.00') {
-  return new PaperBroker({ runId: 'run-1', agentId: 'agent-a', startingBalance: balance });
+  return new PaperBroker({ runId: 'run-1', agentId: 'agent-a', startingBalance: balance, riskConfig: LENIENT_RISK_CONFIG });
 }
 
 // ── Market BUY → SELL round-trip ──────────────────────────────────────────────────────────────────────────
@@ -159,6 +172,7 @@ describe('event emission', () => {
       runId: 'run-1',
       agentId: 'agent-a',
       startingBalance: '10000.00',
+      riskConfig: LENIENT_RISK_CONFIG,
       onEvent: (e) => events.push(e),
     });
     broker.placeMarketOrder({ symbol: 'BTC-USD', side: 'BUY', quantityUsd: '1000.00', orderType: 'MARKET' });
@@ -176,6 +190,7 @@ describe('event emission', () => {
       runId: 'run-1',
       agentId: 'agent-a',
       startingBalance: '100.00',
+      riskConfig: LENIENT_RISK_CONFIG,
       onEvent: (e) => events.push(e),
     });
     broker.placeMarketOrder({ symbol: 'BTC-USD', side: 'BUY', quantityUsd: '500.00', orderType: 'MARKET' });
@@ -208,7 +223,7 @@ describe('drawdown high-water mark', () => {
     expect(new MoneyDecimal(summaryAtPeak.currentDrawdownPct).toFixed(2)).toBe('0.00');
 
     // Price drops below starting balance level
-    broker.processMarketTick({ symbol: 'BTC-USD', bid: '40000.00', ask: '40100.00', lastPrice: '40050.00', timestamp: T3 });
+    broker.processMarketTick({ symbol: 'BTC-USD', bid: '5000.00', ask: '5100.00', lastPrice: '5050.00', timestamp: T3 });
     const summaryAtTrough = broker.getPortfolioSummary(T3);
     const troughEquity = new MoneyDecimal(summaryAtTrough.equity);
 
@@ -250,6 +265,7 @@ describe('full synthetic trade sequence (Phase 3 verification)', () => {
       runId: 'run-seq',
       agentId: 'agent-a',
       startingBalance: '10000.00',
+      riskConfig: LENIENT_RISK_CONFIG,
       onEvent: (e) => { if (e.type === 'PAPER_ORDER_FILLED') fills.push(e.fill); },
     });
 
@@ -300,6 +316,7 @@ describe('full synthetic trade sequence (Phase 3 verification)', () => {
       runId: 'run-replay',
       agentId: 'agent-a',
       startingBalance: '10000.00',
+      riskConfig: LENIENT_RISK_CONFIG,
       onEvent: (e) => { if (e.type === 'PAPER_ORDER_FILLED') collectedFills.push(e.fill); },
     });
 
@@ -340,5 +357,73 @@ describe('full synthetic trade sequence (Phase 3 verification)', () => {
 
     expect(new MoneyDecimal(liveRealized).toFixed(6))
       .toBe(expectedRealized.toFixed(6));
+  });
+});
+
+// ── Deterministic risk gate (issue #2) ─────────────────────────────────────────────────────
+
+describe('risk gate enforcement', () => {
+  it('rejects orders before broker mutation when position size exceeds configured threshold', () => {
+    const events: BrokerEventPayload[] = [];
+    const broker = new PaperBroker({
+      runId: 'run-risk',
+      agentId: 'agent-a',
+      startingBalance: '10000.00',
+      riskConfig: { ...LENIENT_RISK_CONFIG, maxPositionPct: '5' },
+      onEvent: (event) => events.push(event),
+    });
+
+    const order = broker.placeMarketOrder({ symbol: 'BTC-USD', side: 'BUY', quantityUsd: '1000.00', orderType: 'MARKET' });
+
+    expect(order.status).toBe('REJECTED');
+    expect(broker.getOpenOrders()).toHaveLength(0);
+    expect(events.some((event) => event.type === 'PAPER_ORDER_CREATED')).toBe(false);
+    const riskEvent = events.find((event): event is Extract<BrokerEventPayload, { type: 'RISK_CHECK_REJECTED' }> => event.type === 'RISK_CHECK_REJECTED');
+    expect(riskEvent?.riskEvent.ruleId).toBe('MAX_POSITION_SIZE');
+    expect(riskEvent?.riskEvent.requestedValueUsd).toBe('1000');
+    expect(riskEvent?.riskEvent.threshold).toBe('5');
+  });
+
+  it('rejects real execution and leveraged order intents categorically', () => {
+    const broker = makeBroker('10000.00');
+
+    const liveOrder = broker.placeMarketOrder({
+      symbol: 'BTC-USD',
+      side: 'BUY',
+      quantityUsd: '100.00',
+      orderType: 'MARKET',
+      executionMode: 'LIVE',
+    });
+    const leveragedOrder = broker.placeMarketOrder({
+      symbol: 'BTC-USD',
+      side: 'BUY',
+      quantityUsd: '100.00',
+      orderType: 'MARKET',
+      leverageMultiplier: '2',
+    });
+
+    expect(liveOrder.status).toBe('REJECTED');
+    expect(leveragedOrder.status).toBe('REJECTED');
+  });
+
+  it('enforces deterministic order-frequency and strategy-switch limits', () => {
+    const events: BrokerEventPayload[] = [];
+    const broker = new PaperBroker({
+      runId: 'run-frequency',
+      agentId: 'agent-a',
+      startingBalance: '10000.00',
+      riskConfig: { ...LENIENT_RISK_CONFIG, maxOrdersPerMinute: 1, maxStrategySwitchesPerHour: 1 },
+      onEvent: (event) => events.push(event),
+    });
+
+    const firstOrder = broker.placeMarketOrder({ symbol: 'BTC-USD', side: 'BUY', quantityUsd: '100.00', orderType: 'MARKET' });
+    const secondOrder = broker.placeMarketOrder({ symbol: 'ETH-USD', side: 'BUY', quantityUsd: '100.00', orderType: 'MARKET' });
+    broker.recordStrategySwitch('mean-reversion', T1);
+    const strategyRiskEvent = broker.recordStrategySwitch('breakout', T2);
+
+    expect(firstOrder.status).toBe('OPEN');
+    expect(secondOrder.status).toBe('REJECTED');
+    expect(strategyRiskEvent?.ruleId).toBe('MAX_STRATEGY_SWITCHES_PER_HOUR');
+    expect(events.some((event) => event.type === 'RISK_CHECK_REJECTED' && event.riskEvent.ruleId === 'MAX_ORDERS_PER_MINUTE')).toBe(true);
   });
 });

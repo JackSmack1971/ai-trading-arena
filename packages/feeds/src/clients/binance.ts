@@ -8,6 +8,7 @@ import type {
 } from '@arena/core';
 import { normalizeBinanceTrade } from '../normalizers/binance.js';
 import { feedLogger } from '../logger.js';
+import { FeedRateLimiter } from '../rate-limiter.js';
 
 export class BinanceFeedAdapter implements MarketFeedAdapter {
   readonly id = 'binance';
@@ -41,7 +42,10 @@ export class BinanceFeedAdapter implements MarketFeedAdapter {
   private baseDelay = 1000;
   private isIntentionallyDisconnected = false;
   private reconnectTimer: NodeJS.Timeout | null = null;
+  private heartbeatTimer: NodeJS.Timeout | null = null;
+  private isAlive = false;
   private logger = feedLogger.child({ adapter: 'binance' });
+  private readonly rateLimiter = new FeedRateLimiter(this.ratePolicy);
 
   // Track map of binance ticker name (e.g. btcusdt) -> original symbol format (e.g. BTC-USDT)
   private symbolMap: Map<string, string> = new Map();
@@ -62,18 +66,25 @@ export class BinanceFeedAdapter implements MarketFeedAdapter {
     }
 
     try {
-      this.ws = new WebSocket('wss://stream.binance.com:9443/ws');
+      this.ws = new WebSocket('wss://stream.binance.com:9443/ws', undefined, { perMessageDeflate: false });
 
       this.ws.on('open', () => {
         this.reconnectAttempts = 0;
+        this.isAlive = true;
+        this.startHeartbeat();
         this.logger.info({ event: 'feed.connected' }, 'Binance WebSocket connected');
 
         // Subscribe to current symbols
         if (this.symbols.size > 0) {
-          this.sendSubscription(Array.from(this.symbols), 'SUBSCRIBE');
+          void this.scheduleSubscription(Array.from(this.symbols), 'SUBSCRIBE');
         }
 
         if (resolve) resolve();
+      });
+
+      this.ws.on('pong', () => {
+        this.isAlive = true;
+        this.logger.debug({ event: 'feed.pong' }, 'Binance WebSocket pong received');
       });
 
       this.ws.on('message', (data) => {
@@ -97,6 +108,7 @@ export class BinanceFeedAdapter implements MarketFeedAdapter {
       });
 
       this.ws.on('close', () => {
+        this.stopHeartbeat();
         if (!this.isIntentionallyDisconnected) {
           this.logger.warn({ event: 'feed.closed' }, 'Binance connection closed unexpectedly, attempting reconnect');
           this.handleReconnect();
@@ -111,6 +123,27 @@ export class BinanceFeedAdapter implements MarketFeedAdapter {
       });
     } catch (err) {
       if (reject) reject(err as Error);
+    }
+  }
+
+  private startHeartbeat(): void {
+    this.stopHeartbeat();
+    this.heartbeatTimer = setInterval(() => {
+      if (!this.ws) return;
+      if (!this.isAlive) {
+        this.logger.warn({ event: 'feed.heartbeat_failed' }, 'WebSocket heartbeat missed, terminating feed');
+        this.ws.terminate();
+        return;
+      }
+      this.isAlive = false;
+      this.ws.ping();
+    }, 30_000);
+  }
+
+  private stopHeartbeat(): void {
+    if (this.heartbeatTimer) {
+      clearInterval(this.heartbeatTimer);
+      this.heartbeatTimer = null;
     }
   }
 
@@ -147,7 +180,9 @@ export class BinanceFeedAdapter implements MarketFeedAdapter {
     );
 
     this.reconnectTimer = setTimeout(() => {
-      this.doConnect();
+      void this.rateLimiter.schedule(`reconnect-${this.reconnectAttempts}-${Date.now()}`, () => {
+        this.doConnect();
+      });
     }, delay);
   }
 
@@ -157,10 +192,12 @@ export class BinanceFeedAdapter implements MarketFeedAdapter {
       clearTimeout(this.reconnectTimer);
       this.reconnectTimer = null;
     }
+    this.stopHeartbeat();
     if (this.ws) {
       this.ws.close();
       this.ws = null;
     }
+    await this.rateLimiter.stop();
   }
 
   async subscribe(symbols: string[]): Promise<void> {
@@ -176,7 +213,7 @@ export class BinanceFeedAdapter implements MarketFeedAdapter {
     }
 
     if (toSubscribe.length > 0 && this.ws && this.ws.readyState === WebSocket.OPEN) {
-      this.sendSubscription(toSubscribe, 'SUBSCRIBE');
+      await this.scheduleSubscription(toSubscribe, 'SUBSCRIBE');
     }
   }
 
@@ -190,7 +227,7 @@ export class BinanceFeedAdapter implements MarketFeedAdapter {
     }
 
     if (toUnsubscribe.length > 0 && this.ws && this.ws.readyState === WebSocket.OPEN) {
-      this.sendSubscription(toUnsubscribe, 'UNSUBSCRIBE');
+      await this.scheduleSubscription(toUnsubscribe, 'UNSUBSCRIBE');
     }
   }
 
@@ -200,6 +237,12 @@ export class BinanceFeedAdapter implements MarketFeedAdapter {
 
   onError(handler: (err: Error) => void): void {
     this.errorHandler = handler;
+  }
+
+  private scheduleSubscription(symbols: string[], method: 'SUBSCRIBE' | 'UNSUBSCRIBE'): Promise<void> {
+    return this.rateLimiter.schedule(`${method.toLowerCase()}-${symbols.join(',')}-${Date.now()}`, () => {
+      this.sendSubscription(symbols, method);
+    });
   }
 
   private sendSubscription(symbols: string[], method: 'SUBSCRIBE' | 'UNSUBSCRIBE') {

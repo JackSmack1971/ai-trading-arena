@@ -7,3 +7,5 @@ export * from './fills.js';
 export * from './positions.js';
 export * from './pnl.js';
 export * from './broker.js';
+export { PaperRiskGate } from './risk-gate.js';
+export type { RiskGateContext, RiskGateDecision, StrategySwitchRiskContext } from './risk-gate.js';
