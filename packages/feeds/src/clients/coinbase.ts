@@ -33,6 +33,8 @@ export class CoinbaseFeedAdapter implements MarketFeedAdapter {
   private config: FeedConfig | null = null;
   private symbols: Set<string> = new Set();
   private eventHandler: ((event: NormalizedMarketEvent) => void) | null = null;
+  private errorHandler: ((err: Error) => void) | null = null;
+  private terminalError: Error | null = null;
   private reconnectAttempts = 0;
   private maxReconnectAttempts = 10;
   private baseDelay = 1000;
@@ -101,8 +103,16 @@ export class CoinbaseFeedAdapter implements MarketFeedAdapter {
 
   private handleReconnect() {
     if (this.reconnectAttempts >= this.maxReconnectAttempts) {
+      const err = new Error(`Coinbase feed reconnect exhausted after ${this.maxReconnectAttempts} attempts`);
+      this.terminalError = err;
+      this.isIntentionallyDisconnected = true;
+      if (this.ws) {
+        this.ws.close();
+        this.ws = null;
+      }
       console.error('Max Coinbase reconnect attempts reached. Exiting.');
-      process.exit(1);
+      this.errorHandler?.(err);
+      return;
     }
 
     const delay = Math.min(
@@ -111,7 +121,7 @@ export class CoinbaseFeedAdapter implements MarketFeedAdapter {
     );
     this.reconnectAttempts++;
     console.log(`Reconnecting to Coinbase in ${delay.toFixed(0)}ms (attempt ${this.reconnectAttempts}/${this.maxReconnectAttempts})`);
-    
+
     this.reconnectTimer = setTimeout(() => {
       this.doConnect();
     }, delay);
@@ -159,6 +169,10 @@ export class CoinbaseFeedAdapter implements MarketFeedAdapter {
 
   onEvent(handler: (event: NormalizedMarketEvent) => void): void {
     this.eventHandler = handler;
+  }
+
+  onError(handler: (err: Error) => void): void {
+    this.errorHandler = handler;
   }
 
   private sendSubscription(symbols: string[], type: 'subscribe' | 'unsubscribe') {
