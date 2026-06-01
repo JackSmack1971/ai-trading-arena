@@ -221,6 +221,10 @@ export class StrategyExecutor {
    * same order always produces identical outputs. No randomness is introduced
    * inside this method; strategies that call `randomUUID` in their own logic
    * will break determinism — that is caught by the static scanner.
+   *
+   * Error boundary: a strategy that emits an invalid signal is logged and
+   * skipped; it never prevents valid signals from other strategies from being
+   * collected.
    */
   async processMarketEvent(event: NormalizedMarketEvent): Promise<StrategySignal[]> {
     // 1. Update history for closed bars
@@ -256,8 +260,22 @@ export class StrategyExecutor {
       }
 
       for (const signal of signals) {
-        this._validateSignal(signal, entry.descriptor.id);
-        allSignals.push(signal);
+        try {
+          // Per-strategy validation boundary: an invalid signal from one strategy
+          // must not prevent valid signals from other strategies from being collected.
+          this._validateSignal(signal, entry.descriptor.id);
+          allSignals.push(signal);
+        } catch (err) {
+          if (err instanceof SignalValidationError) {
+            ctx.log(
+              `[executor] Invalid signal from strategy "${entry.descriptor.id}" rejected`,
+              { strategyId: entry.descriptor.id, issues: err.issues },
+            );
+          } else {
+            ctx.log(`[executor] Unexpected error validating signal: ${(err as Error).message}`);
+          }
+          // Continue to next signal/strategy — never crash the executor
+        }
       }
     }
 

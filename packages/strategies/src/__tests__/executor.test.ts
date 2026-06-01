@@ -227,13 +227,26 @@ describe('T-02-07: Signal routing and validation', () => {
     expect(toStrategySignalEvent(signals[0]!).type).toBe(STRATEGY_SIGNAL_CREATED_TYPE);
   });
 
-  it('throws SignalValidationError when strategy emits malformed signal', async () => {
+  it('skips invalid signal but still collects valid signals from other strategies (issue #6)', async () => {
+    const executor = new StrategyExecutor(BASE_PORTFOLIO);
+    // Register invalid strategy first, valid strategy second
+    executor.registerStrategy('agent-1', invalidSignalStrategy);
+    executor.registerStrategy('agent-2', makeAlwaysLongStrategy('good-signal'));
+
+    const signals = await executor.processMarketEvent(makeEvent('BTC-USD'));
+
+    // The valid signal from 'good-signal' strategy must be present
+    expect(signals).toHaveLength(1);
+    expect(signals[0]!.strategyId).toBe('good-signal');
+    expect(signals[0]!.signal).toBe('long');
+  });
+
+  it('processMarketEvent does NOT throw when a strategy emits an invalid signal', async () => {
     const executor = new StrategyExecutor(BASE_PORTFOLIO);
     executor.registerStrategy('agent-1', invalidSignalStrategy);
 
-    await expect(executor.processMarketEvent(makeEvent('BTC-USD'))).rejects.toThrow(
-      SignalValidationError,
-    );
+    // Must resolve (not reject) — invalid signals are caught per-strategy
+    await expect(executor.processMarketEvent(makeEvent('BTC-USD'))).resolves.toEqual([]);
   });
 
   it('unregisterStrategy stops the strategy from receiving ticks', async () => {
