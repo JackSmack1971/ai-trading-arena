@@ -168,8 +168,8 @@ export class BinanceFeedAdapter implements MarketFeedAdapter {
     for (const sym of symbols) {
       if (!this.symbols.has(sym)) {
         this.symbols.add(sym);
-        // Map BTC-USDT -> btcusdt
-        const binanceKey = sym.toLowerCase().replace('-', '');
+        // Map BTC-USDT -> btcusdt (global replace handles multi-hyphen symbols like BTC-PERP-USD)
+        const binanceKey = sym.toLowerCase().replace(/-/g, '');
         this.symbolMap.set(binanceKey, sym);
         toSubscribe.push(sym);
       }
@@ -204,7 +204,8 @@ export class BinanceFeedAdapter implements MarketFeedAdapter {
 
   private sendSubscription(symbols: string[], method: 'SUBSCRIBE' | 'UNSUBSCRIBE') {
     if (!this.ws) return;
-    const params = symbols.map((s) => `${s.toLowerCase().replace('-', '')}@trade`);
+    // Global replace handles multi-hyphen symbols correctly (e.g. BTC-PERP-USD -> btcperpusd)
+    const params = symbols.map((s) => `${s.toLowerCase().replace(/-/g, '')}@trade`);
     this.ws.send(
       JSON.stringify({
         method,

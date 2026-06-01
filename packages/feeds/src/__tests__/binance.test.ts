@@ -99,4 +99,45 @@ describe('BinanceFeedAdapter Tests', () => {
     expect(events[0].symbol).toBe('BTC-USDT'); // Should map back from BTCUSDT to BTC-USDT
     expect(events[0].volume).toBe('0.12');
   });
+
+  it('multi-hyphen symbol BTC-PERP-USD maps to btcperpusd stream key and back', async () => {
+    const receivedEvents: any[] = [];
+    adapter.onEvent(ev => receivedEvents.push(ev));
+
+    const connectPromise = adapter.connect({ symbols: ['BTC-PERP-USD'] });
+    await vi.advanceTimersByTimeAsync(1);
+    await connectPromise;
+
+    const mockWS = (WebSocket as any).lastInstance;
+
+    // Subscribe — symbolMap should use global replace: 'btcperpusd'
+    await adapter.subscribe(['BTC-PERP-USD']);
+
+    const subscribeCall = mockWS.send.mock.calls.find((c: any[]) => {
+      const msg = JSON.parse(c[0]);
+      return msg.method === 'SUBSCRIBE';
+    });
+    expect(subscribeCall).toBeDefined();
+    const subscribeMsg = JSON.parse(subscribeCall[0]);
+    expect(subscribeMsg.params).toContain('btcperpusd@trade');
+
+    // Simulate Binance returning message with s='BTCPERPUSD' (all-caps, no hyphens)
+    const rawTrade = {
+      e: 'trade',
+      E: 1234567890123,
+      s: 'BTCPERPUSD',
+      t: 12345,
+      p: '100.00',
+      q: '0.5',
+      T: Date.now(),
+    };
+
+    const messageHandler = mockWS.listeners['message']?.[0];
+    expect(messageHandler).toBeDefined();
+    messageHandler(Buffer.from(JSON.stringify(rawTrade)));
+
+    // eventHandler must have been called with the original symbol restored
+    expect(receivedEvents).toHaveLength(1);
+    expect(receivedEvents[0].symbol).toBe('BTC-PERP-USD');
+  });
 });
