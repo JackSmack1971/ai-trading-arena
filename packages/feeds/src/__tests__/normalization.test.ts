@@ -21,6 +21,8 @@ describe('Feed Normalization Tests', () => {
       };
 
       const normalized = normalizeCoinbaseTick(rawMsg);
+      expect(normalized).not.toBeNull();
+      if (!normalized) return;
 
       // Verify schema compliance
       const parsed = NormalizedMarketEventSchema.safeParse(normalized);
@@ -50,6 +52,8 @@ describe('Feed Normalization Tests', () => {
       };
 
       const normalized = normalizeCoinbaseTick(rawMsg);
+      expect(normalized).not.toBeNull();
+      if (!normalized) return;
       const parsed = NormalizedMarketEventSchema.safeParse(normalized);
       expect(parsed.success).toBe(true);
 
@@ -78,6 +82,8 @@ describe('Feed Normalization Tests', () => {
       };
 
       const normalized = normalizeBinanceTrade(rawMsg);
+      expect(normalized).not.toBeNull();
+      if (!normalized) return;
 
       // Verify schema compliance
       const parsed = NormalizedMarketEventSchema.safeParse(normalized);
@@ -104,6 +110,8 @@ describe('Feed Normalization Tests', () => {
       };
 
       const normalized = normalizeBinanceTrade(rawMsg);
+      expect(normalized).not.toBeNull();
+      if (!normalized) return;
       const parsed = NormalizedMarketEventSchema.safeParse(normalized);
       expect(parsed.success).toBe(true);
 
