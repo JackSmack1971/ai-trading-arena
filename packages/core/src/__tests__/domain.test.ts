@@ -215,6 +215,25 @@ describe('RiskEventSchema', () => {
   it('rejects unknown rule ID', () => {
     expect(RiskEventSchema.safeParse({ ...validRejection, ruleId: 'UNKNOWN_RULE' }).success).toBe(false);
   });
+
+
+  it('validates a risk approval event without a breached rule ID', () => {
+    const result = RiskEventSchema.safeParse({
+      eventId: 'risk_pass_01',
+      runId: 'run_01',
+      agentId: 'agent_b',
+      decision: 'PASSED',
+      requestedAction: 'MARKET_BUY_ORDER',
+      requestedValueUsd: '100',
+      reason: 'Risk gate approved the paper simulator action.',
+      timestamp: '2024-01-01T12:00:00.000Z',
+    });
+    expect(result.success).toBe(true);
+    if (result.success) {
+      expect(result.data.decision).toBe('PASSED');
+      expect(result.data.ruleId).toBeUndefined();
+    }
+  });
 });
 
 describe('SimEventTypeSchema', () => {

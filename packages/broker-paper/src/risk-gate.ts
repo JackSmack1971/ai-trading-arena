@@ -25,7 +25,7 @@ export interface StrategySwitchRiskContext {
 }
 
 export type RiskGateDecision =
-  | { decision: 'PASSED' }
+  | { decision: 'PASSED'; event: RiskEvent }
   | { decision: 'REJECTED'; event: RiskEvent };
 
 function pctOfEquity(value: MoneyDecimal, equity: MoneyDecimal): MoneyDecimal {
@@ -57,6 +57,32 @@ function createRiskEvent(params: {
   if (params.allowedValueUsd !== undefined) event.allowedValueUsd = params.allowedValueUsd.toString();
   if (params.threshold !== undefined) event.threshold = params.threshold.toString();
   return event;
+}
+
+function createRiskPassedEvent(ctx: RiskGateContext): RiskEvent {
+  return {
+    eventId: nanoid(),
+    runId: ctx.runId,
+    agentId: ctx.agentId,
+    decision: 'PASSED',
+    requestedAction: `${ctx.request.orderType}_${ctx.request.side}_ORDER`,
+    requestedValueUsd: ctx.request.quantityUsd,
+    reason: 'Risk gate approved the paper simulator action.',
+    timestamp: ctx.timestamp,
+  };
+}
+
+function createStrategySwitchPassedEvent(ctx: StrategySwitchRiskContext): RiskEvent {
+  return {
+    eventId: nanoid(),
+    runId: ctx.runId,
+    agentId: ctx.agentId,
+    decision: 'PASSED',
+    requestedAction: `SWITCH_STRATEGY:${ctx.strategyId}`,
+    requestedValueUsd: ctx.strategySwitchesThisHour.toString(),
+    reason: 'Risk gate approved the strategy switch.',
+    timestamp: ctx.timestamp,
+  };
 }
 
 export class PaperRiskGate {
@@ -125,7 +151,7 @@ export class PaperRiskGate {
       return this.reject(ctx, 'MAX_TOTAL_EXPOSURE', action, projectedTotalExposure, allowed, this.config.maxTotalExposurePct, 'Projected total exposure exceeds the configured limit.');
     }
 
-    return { decision: 'PASSED' };
+    return { decision: 'PASSED', event: createRiskPassedEvent(ctx) };
   }
 
   evaluateStrategySwitch(ctx: StrategySwitchRiskContext): RiskGateDecision {
@@ -145,7 +171,7 @@ export class PaperRiskGate {
         }),
       };
     }
-    return { decision: 'PASSED' };
+    return { decision: 'PASSED', event: createStrategySwitchPassedEvent(ctx) };
   }
 
   private reject(

@@ -42,6 +42,7 @@ export type BrokerEventPayload =
   | { type: 'PAPER_ORDER_CANCELLED'; order: PaperOrder }
   | { type: 'PAPER_ORDER_FILLED'; fill: PaperFill; order: PaperOrder }
   | { type: 'PAPER_ORDER_REJECTED'; orderId: string; reason: string; riskEvent?: RiskEvent }
+  | { type: 'RISK_CHECK_PASSED'; riskEvent: RiskEvent }
   | { type: 'RISK_CHECK_REJECTED'; riskEvent: RiskEvent }
   | { type: 'POSITION_UPDATED'; position: Position }
   | { type: 'PNL_SNAPSHOT_CREATED'; snapshot: PnLSnapshot };
