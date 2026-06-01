@@ -1,5 +1,6 @@
-const { access, readFile, readdir } = require("node:fs/promises");
-const path = require("node:path");
+import { access, readFile, readdir } from "node:fs/promises";
+import path from "node:path";
+import { fileURLToPath } from "node:url";
 
 const REQUIRED_FILES = [
   "CLAUDE.md",
@@ -604,11 +605,10 @@ async function run(context = {}) {
   };
 }
 
-module.exports = {
-  run
-};
+export { run };
 
-if (require.main === module) {
+const isMain = process.argv[1] === fileURLToPath(import.meta.url);
+if (isMain) {
   run()
     .then((result) => {
       console.log(JSON.stringify(result, null, 2));
