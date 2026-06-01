@@ -315,11 +315,9 @@ export class PaperBroker {
       ? positionValue.div(equity).times('100')
       : ZERO_MONEY;
 
-    const startBal = new MoneyDecimal(this.startingBalance);
-    const hwm = startBal.lt(equity) ? equity : startBal;
-    const currentDrawdownPct = hwm.gt(ZERO_MONEY)
-      ? MoneyDecimal.max(ZERO_MONEY, hwm.minus(equity).div(hwm).times('100'))
-      : ZERO_MONEY;
+    // Use the pnlTracker's running high-water mark so drawdown reflects the
+    // peak-to-trough from the true equity peak, not just max(startBal, currentEquity).
+    const currentDrawdownPct = this.pnlTracker.getCurrentDrawdownPct(equity);
 
     return {
       agentId: this.agentId,

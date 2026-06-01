@@ -12,6 +12,21 @@ export class PnLTracker {
     this.highWaterMarkEquity = this.startingBalance;
   }
 
+  /**
+   * Update the running high-water mark and return the current peak-to-trough
+   * drawdown percentage based on the supplied equity value.
+   * Safe to call read-only — only the HWM is mutated, no events are emitted.
+   */
+  getCurrentDrawdownPct(equity: MoneyDecimal): MoneyDecimal {
+    if (equity.gt(this.highWaterMarkEquity)) {
+      this.highWaterMarkEquity = equity;
+    }
+    const drawdown = this.highWaterMarkEquity.gt(ZERO_MONEY)
+      ? this.highWaterMarkEquity.minus(equity).div(this.highWaterMarkEquity).times('100')
+      : ZERO_MONEY;
+    return MoneyDecimal.max(ZERO_MONEY, drawdown);
+  }
+
   snapshot(params: {
     runId: string;
     agentId: string;
@@ -31,14 +46,8 @@ export class PnLTracker {
 
     const equity = cashBalance.plus(positionValue);
 
-    // Update high-water mark and drawdown.
-    if (equity.gt(this.highWaterMarkEquity)) {
-      this.highWaterMarkEquity = equity;
-    }
-    const drawdown = this.highWaterMarkEquity.gt(ZERO_MONEY)
-      ? this.highWaterMarkEquity.minus(equity).div(this.highWaterMarkEquity).times('100')
-      : ZERO_MONEY;
-    const currentDrawdownPct = MoneyDecimal.max(ZERO_MONEY, drawdown);
+    // Update running high-water mark and current/max drawdown.
+    const currentDrawdownPct = this.getCurrentDrawdownPct(equity);
     if (currentDrawdownPct.gt(this.maxDrawdownPct)) {
       this.maxDrawdownPct = currentDrawdownPct;
     }
