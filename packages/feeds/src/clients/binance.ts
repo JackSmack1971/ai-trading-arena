@@ -85,7 +85,9 @@ export class BinanceFeedAdapter implements MarketFeedAdapter {
               ...msg,
               s: originalSymbol,
             });
-            this.eventHandler(normalized);
+            if (normalized) {
+              this.eventHandler(normalized);
+            }
           }
         } catch (err) {
           console.error('Error parsing Binance message:', err);

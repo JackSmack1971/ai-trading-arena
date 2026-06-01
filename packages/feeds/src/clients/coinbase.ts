@@ -76,7 +76,9 @@ export class CoinbaseFeedAdapter implements MarketFeedAdapter {
           const msg = JSON.parse(data.toString());
           if (msg.type === 'ticker' && this.eventHandler) {
             const normalized = normalizeCoinbaseTick(msg);
-            this.eventHandler(normalized);
+            if (normalized) {
+              this.eventHandler(normalized);
+            }
           }
         } catch (err) {
           console.error('Error parsing Coinbase message:', err);
