@@ -46,6 +46,7 @@ export const StrategyManifestSchema = z.object({
   version: z.string().min(1),
   entry: z.string().min(1),
   permissions: StrategyManifestPermissionsSchema,
+  inputs: z.record(z.string(), z.unknown()).optional(),
 });
 export type StrategyManifest = z.infer<typeof StrategyManifestSchema>;
 
