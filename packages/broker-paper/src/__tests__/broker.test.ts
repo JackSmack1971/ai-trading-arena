@@ -14,7 +14,7 @@ function makeBroker(balance = '10000.00') {
   return new PaperBroker({ runId: 'run-1', agentId: 'agent-a', startingBalance: balance });
 }
 
-// ── Market BUY → SELL round-trip ──────────────────────────────────────────
+// ── Market BUY → SELL round-trip ──────────────────────────────────────────────────────────────────────────
 
 describe('market order round-trip', () => {
   it('BUY 1000 USD fills at ask, cash decreases by notional + fee', () => {
@@ -73,7 +73,7 @@ describe('market order round-trip', () => {
   });
 });
 
-// ── Limit orders ──────────────────────────────────────────────────────────
+// ── Limit orders ─────────────────────────────────────────────────────────────────────────────
 
 describe('limit orders', () => {
   it('limit BUY not filled when ask is above limit price', () => {
@@ -127,7 +127,7 @@ describe('limit orders', () => {
   });
 });
 
-// ── Rejection checks ──────────────────────────────────────────────────────
+// ── Rejection checks ──────────────────────────────────────────────────────────────────────────────────
 
 describe('order rejections', () => {
   it('MARKET BUY rejected when insufficient balance', () => {
@@ -150,7 +150,7 @@ describe('order rejections', () => {
   });
 });
 
-// ── Event emission ────────────────────────────────────────────────────────
+// ── Event emission ────────────────────────────────────────────────────────────────────────────────────
 
 describe('event emission', () => {
   it('emits PAPER_ORDER_CREATED, PAPER_ORDER_FILLED, and POSITION_UPDATED on market fill', () => {
@@ -183,7 +183,65 @@ describe('event emission', () => {
   });
 });
 
-// ── Full synthetic round-trip + PnL snapshot ─────────────────────────────
+// ── Drawdown high-water mark regression (issue #5) ──────────────────────────────────────────
+
+describe('drawdown high-water mark', () => {
+  it('reports correct drawdown when equity peaks above starting balance then drops', () => {
+    // Starting balance: 10000
+    // Equity peaks at ~13000 via an unrealised P&L simulation, then drops to ~9000
+    // Correct drawdown from 13000 to 9000 is (13000-9000)/13000 ≈ 30.77%
+    // The old code would report (10000-9000)/10000 = 10% (wrong)
+    const broker = makeBroker('10000.00');
+
+    // Simulate equity=13000 by calling getPortfolioSummary with a mocked position value
+    // We achieve this by buying 1000 at ask=49100 and then simulating price appreciation
+    broker.placeMarketOrder({ symbol: 'BTC-USD', side: 'BUY', quantityUsd: '1000.00', orderType: 'MARKET' });
+    broker.processMarketTick({ symbol: 'BTC-USD', bid: '49000.00', ask: '49100.00', lastPrice: '49050.00', timestamp: T1 });
+
+    // Price up: unrealised gain pushes equity above starting balance
+    broker.processMarketTick({ symbol: 'BTC-USD', bid: '60000.00', ask: '60100.00', lastPrice: '60050.00', timestamp: T2 });
+    const summaryAtPeak = broker.getPortfolioSummary(T2);
+    const peakEquity = new MoneyDecimal(summaryAtPeak.equity);
+    // Peak equity should be > 10000 (position gained value)
+    expect(peakEquity.gt(new MoneyDecimal('10000'))).toBe(true);
+    // At the peak, drawdown should be ~0
+    expect(new MoneyDecimal(summaryAtPeak.currentDrawdownPct).toFixed(2)).toBe('0.00');
+
+    // Price drops below starting balance level
+    broker.processMarketTick({ symbol: 'BTC-USD', bid: '40000.00', ask: '40100.00', lastPrice: '40050.00', timestamp: T3 });
+    const summaryAtTrough = broker.getPortfolioSummary(T3);
+    const troughEquity = new MoneyDecimal(summaryAtTrough.equity);
+
+    // Expected drawdown = (peakEquity - troughEquity) / peakEquity * 100
+    const expectedDrawdown = peakEquity.minus(troughEquity).div(peakEquity).times('100');
+    const reportedDrawdown = new MoneyDecimal(summaryAtTrough.currentDrawdownPct);
+
+    // Must match running-HWM drawdown, not the stateless max(startBal, equity) computation
+    expect(reportedDrawdown.toFixed(4)).toBe(expectedDrawdown.toFixed(4));
+
+    // Reported drawdown must be > 0 and > the 10% the old code returned
+    expect(reportedDrawdown.gt(new MoneyDecimal('10'))).toBe(true);
+  });
+
+  it('getPnLSnapshot and getPortfolioSummary are consistent in their drawdown values', () => {
+    const broker = makeBroker('10000.00');
+
+    // Buy and let price rise then fall
+    broker.placeMarketOrder({ symbol: 'BTC-USD', side: 'BUY', quantityUsd: '2000.00', orderType: 'MARKET' });
+    broker.processMarketTick({ symbol: 'BTC-USD', bid: '49000.00', ask: '49100.00', lastPrice: '49050.00', timestamp: T1 });
+    broker.processMarketTick({ symbol: 'BTC-USD', bid: '55000.00', ask: '55100.00', lastPrice: '55050.00', timestamp: T2 });
+    const snapshot = broker.getPnLSnapshot(T2);
+    const summary = broker.getPortfolioSummary(T2);
+
+    // Both should agree on current drawdown at the same equity level
+    expect(new MoneyDecimal(snapshot.maxDrawdownPct).toFixed(4))
+      .toBe(new MoneyDecimal('0').toFixed(4)); // still at or near peak, max drawdown is 0
+    expect(new MoneyDecimal(summary.currentDrawdownPct).toFixed(4))
+      .toBe(new MoneyDecimal('0').toFixed(4)); // at peak, current drawdown is also 0
+  });
+});
+
+// ── Full synthetic round-trip + PnL snapshot ─────────────────────────────────────────────
 
 describe('full synthetic trade sequence (Phase 3 verification)', () => {
   it('round-trip: BUY → price up → partial SELL → limit BUY → PnL snapshot', () => {
