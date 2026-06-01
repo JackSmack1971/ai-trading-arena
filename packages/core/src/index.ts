@@ -152,6 +152,10 @@ export type {
   RiskEvent,
 } from './schemas/risk.js';
 
+// Risk gate
+export { evaluateRiskGate } from './risk-gate.js';
+export type { RiskGateResult, RiskActionDescriptor } from './risk-gate.js';
+
 // Agent
 export {
   AgentActionNameSchema,

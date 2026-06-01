@@ -19,6 +19,11 @@ import type {
   PortfolioSummary,
   Position,
 } from './types.js';
+import {
+  evaluateRiskGate,
+  DefaultRiskConfig,
+} from '@arena/core';
+import type { RiskConfig, RiskState } from '@arena/core';
 
 export interface BrokerConfig {
   runId: string;
@@ -27,6 +32,7 @@ export interface BrokerConfig {
   feeModel?: FeeModel;
   slippageModel?: SlippageModel;
   onEvent?: BrokerEventHandler;
+  riskConfig?: RiskConfig;
 }
 
 export class PaperBroker {
@@ -39,6 +45,7 @@ export class PaperBroker {
   private readonly feeModel: FeeModel;
   private readonly slippageModel: SlippageModel;
   private readonly onEvent: BrokerEventHandler | undefined;
+  private readonly riskConfig: RiskConfig;
 
   private readonly orders: Map<string, PaperOrder> = new Map();
   private readonly openOrders: Map<string, PaperOrder> = new Map();
@@ -47,6 +54,10 @@ export class PaperBroker {
   private totalSlippagePaid: MoneyDecimal = ZERO_MONEY;
   private tradeCount = 0;
 
+  // Per-minute order counter for MAX_ORDERS_PER_MINUTE gate
+  private ordersThisMinute = 0;
+  private orderMinuteWindowStart = Date.now();
+
   constructor(config: BrokerConfig) {
     this.runId = config.runId;
     this.agentId = config.agentId;
@@ -54,24 +65,65 @@ export class PaperBroker {
     this.feeModel = config.feeModel ?? new TakerMakerFeeModel(DEFAULT_FEE_CONFIG);
     this.slippageModel = config.slippageModel ?? new SpreadSlippageModel();
     this.onEvent = config.onEvent;
+    this.riskConfig = config.riskConfig ?? DefaultRiskConfig;
     this.ledger = new CashLedger(config.startingBalance);
     this.posTracker = new PositionTracker(config.runId, config.agentId);
     this.pnlTracker = new PnLTracker(config.startingBalance);
     this.ledger.recordDeposit(config.startingBalance, new Date().toISOString());
   }
 
+  private buildRiskState(nowIso: string): RiskState {
+    const now = Date.now();
+    if (now - this.orderMinuteWindowStart >= 60_000) {
+      this.ordersThisMinute = 0;
+      this.orderMinuteWindowStart = now;
+    }
+    const positionValue = this.posTracker.getTotalPositionValue();
+    const cashBalance = this.ledger.getBalance();
+    const equity = cashBalance.plus(positionValue);
+    const totalExposurePct = equity.gt(ZERO_MONEY)
+      ? positionValue.div(equity).times('100').toString()
+      : '0';
+    return {
+      runId: this.runId,
+      agentId: this.agentId,
+      currentDrawdownPct: this.pnlTracker.getMaxDrawdownPct().toString(),
+      maxDrawdownPct: this.riskConfig.maxDrawdownPct,
+      positionValueUsd: positionValue.toString(),
+      totalExposurePct,
+      ordersThisMinute: this.ordersThisMinute,
+      strategySwitchesThisHour: 0,
+      lastEvaluatedAt: nowIso,
+    };
+  }
+
   placeMarketOrder(req: PlaceOrderRequest): PaperOrder {
     const now = new Date().toISOString();
 
-    // Check available balance covers estimated cost (notional + max taker fee).
-    const notional = new MoneyDecimal(req.quantityUsd);
-    const estFee = notional.times('15').div('10000');
-    const estCost = notional.plus(estFee);
+    // Evaluate risk gate before any state mutation
+    const cashBalance = this.ledger.getBalance();
+    const positionValue = this.posTracker.getTotalPositionValue();
+    const equity = cashBalance.plus(positionValue);
+    const existingPos = this.posTracker.getPosition(req.symbol);
+    const symbolExposureUsd = existingPos
+      ? new MoneyDecimal(existingPos.quantity).times(existingPos.currentPrice).toString()
+      : '0';
 
-    if (req.side === 'BUY' && this.ledger.getAvailable().lt(estCost)) {
+    const riskState = this.buildRiskState(now);
+    const riskResult = evaluateRiskGate(this.riskConfig, riskState, {
+      action: 'PLACE_MARKET_ORDER',
+      side: req.side,
+      symbol: req.symbol,
+      requestedValueUsd: req.quantityUsd,
+      cashBalanceUsd: cashBalance.toString(),
+      equityUsd: equity.toString(),
+      symbolExposureUsd,
+    });
+
+    if (!riskResult.passed) {
       const order = this.makeOrder(req, 'REJECTED', now);
       this.orders.set(order.orderId, order);
-      this.emit({ type: 'PAPER_ORDER_REJECTED', orderId: order.orderId, reason: 'INSUFFICIENT_BALANCE' });
+      this.emit({ type: 'PAPER_ORDER_REJECTED', orderId: order.orderId, reason: riskResult.ruleId });
       return order;
     }
 
@@ -85,6 +137,7 @@ export class PaperBroker {
       }
     }
 
+    this.ordersThisMinute++;
     const order = this.makeOrder(req, 'OPEN', now);
     this.orders.set(order.orderId, order);
     this.openOrders.set(order.orderId, order);
@@ -98,6 +151,33 @@ export class PaperBroker {
       const order = this.makeOrder({ ...req, orderType: 'LIMIT' }, 'REJECTED', now);
       this.orders.set(order.orderId, order);
       this.emit({ type: 'PAPER_ORDER_REJECTED', orderId: order.orderId, reason: 'MISSING_LIMIT_PRICE' });
+      return order;
+    }
+
+    // Evaluate risk gate before any state mutation
+    const cashBalance = this.ledger.getBalance();
+    const positionValue = this.posTracker.getTotalPositionValue();
+    const equity = cashBalance.plus(positionValue);
+    const existingPos = this.posTracker.getPosition(req.symbol);
+    const symbolExposureUsd = existingPos
+      ? new MoneyDecimal(existingPos.quantity).times(existingPos.currentPrice).toString()
+      : '0';
+
+    const riskState = this.buildRiskState(now);
+    const riskResult = evaluateRiskGate(this.riskConfig, riskState, {
+      action: 'PLACE_LIMIT_ORDER',
+      side: req.side,
+      symbol: req.symbol,
+      requestedValueUsd: req.quantityUsd,
+      cashBalanceUsd: cashBalance.toString(),
+      equityUsd: equity.toString(),
+      symbolExposureUsd,
+    });
+
+    if (!riskResult.passed) {
+      const order = this.makeOrder({ ...req, orderType: 'LIMIT' }, 'REJECTED', now);
+      this.orders.set(order.orderId, order);
+      this.emit({ type: 'PAPER_ORDER_REJECTED', orderId: order.orderId, reason: riskResult.ruleId });
       return order;
     }
 
@@ -115,6 +195,7 @@ export class PaperBroker {
       }
     }
 
+    this.ordersThisMinute++;
     const order = this.makeOrder({ ...req, orderType: 'LIMIT' }, 'OPEN', now);
     // Fix: release and re-reserve with the actual orderId
     if (req.side === 'BUY') {
