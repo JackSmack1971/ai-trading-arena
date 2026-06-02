@@ -237,11 +237,12 @@ describe('RiskEventSchema', () => {
 });
 
 describe('SimEventTypeSchema', () => {
-  it('validates all 20 event types', () => {
+  it('validates all 21 event types', () => {
     const types = SimEventTypeSchema.options;
-    expect(types).toHaveLength(20);
+    expect(types).toHaveLength(21);
     expect(types).toContain('MARKET_TICK_RECEIVED');
     expect(types).toContain('PAPER_ORDER_FILLED');
+    expect(types).toContain('STRATEGY_SWITCH_REQUESTED');
     expect(types).toContain('AGENT_DECISION_INVALID');
   });
 });

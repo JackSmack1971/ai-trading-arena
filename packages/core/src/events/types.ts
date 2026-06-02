@@ -1,5 +1,5 @@
 import { z } from 'zod';
-import { EventIdSchema, RunIdSchema, TimestampSchema } from '../schemas/common.js';
+import { AgentIdSchema, EventIdSchema, RunIdSchema, StrategyIdSchema, TimestampSchema } from '../schemas/common.js';
 import { AgentDecisionSchema } from '../schemas/agent.js';
 import { NormalizedMarketEventSchema } from '../schemas/market.js';
 import { PaperFillSchema, PaperOrderSchema, PnLSnapshotSchema, PositionSchema } from '../schemas/broker.js';
@@ -24,6 +24,7 @@ export const SimEventTypeSchema = z.enum([
   'POSITION_UPDATED',
   'PNL_SNAPSHOT_CREATED',
   'STRATEGY_SWITCHED',
+  'STRATEGY_SWITCH_REQUESTED',
   'RATE_LIMIT_DELAYED',
   'FEED_DISCONNECTED',
   'FEED_RECONNECTED',
@@ -102,6 +103,15 @@ export const StrategySwitchedPayloadSchema = z.object({
 });
 export type StrategySwitchedPayload = z.infer<typeof StrategySwitchedPayloadSchema>;
 
+export const StrategySwitchRequestedPayloadSchema = z.object({
+  runId: RunIdSchema,
+  agentId: AgentIdSchema,
+  fromStrategyId: StrategyIdSchema,
+  toStrategyId: StrategyIdSchema,
+  timestamp: TimestampSchema,
+});
+export type StrategySwitchRequestedPayload = z.infer<typeof StrategySwitchRequestedPayloadSchema>;
+
 export const RateLimitDelayedPayloadSchema = z.object({
   provider: z.string().min(1),
   operation: z.string().min(1),
@@ -118,3 +128,30 @@ export const FeedConnectionPayloadSchema = z.object({
   reconnectAttempt: z.number().int().nonnegative().optional(),
 });
 export type FeedConnectionPayload = z.infer<typeof FeedConnectionPayloadSchema>;
+
+
+const UnknownPayloadSchema = z.record(z.string(), z.unknown());
+
+export const SimEventPayloadSchemas = {
+  MARKET_TICK_RECEIVED: MarketTickPayloadSchema,
+  ORDERBOOK_UPDATED: UnknownPayloadSchema,
+  BAR_CLOSED: UnknownPayloadSchema,
+  STRATEGY_SIGNAL_CREATED: StrategySignalPayloadSchema,
+  AGENT_DECISION_REQUESTED: AgentDecisionRequestedPayloadSchema,
+  AGENT_DECISION_RECEIVED: AgentDecisionReceivedPayloadSchema,
+  AGENT_DECISION_INVALID: AgentDecisionInvalidPayloadSchema,
+  RISK_CHECK_PASSED: RiskCheckPayloadSchema,
+  RISK_CHECK_REJECTED: RiskCheckPayloadSchema,
+  PAPER_ORDER_CREATED: UnknownPayloadSchema,
+  PAPER_ORDER_AMENDED: UnknownPayloadSchema,
+  PAPER_ORDER_CANCELLED: UnknownPayloadSchema,
+  PAPER_ORDER_REJECTED: UnknownPayloadSchema,
+  PAPER_ORDER_FILLED: UnknownPayloadSchema,
+  POSITION_UPDATED: UnknownPayloadSchema,
+  PNL_SNAPSHOT_CREATED: UnknownPayloadSchema,
+  STRATEGY_SWITCHED: StrategySwitchedPayloadSchema,
+  STRATEGY_SWITCH_REQUESTED: StrategySwitchRequestedPayloadSchema,
+  RATE_LIMIT_DELAYED: RateLimitDelayedPayloadSchema,
+  FEED_DISCONNECTED: FeedConnectionPayloadSchema,
+  FEED_RECONNECTED: FeedConnectionPayloadSchema,
+} as const satisfies Record<SimEventType, z.ZodType>;

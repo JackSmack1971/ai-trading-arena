@@ -5,7 +5,7 @@ import { migrate } from 'drizzle-orm/better-sqlite3/migrator';
 import { eq } from 'drizzle-orm';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { createMemoryDb, type ArenaDb } from '../client.js';
-import { appendEvent, appendEvents, countEvents, getEvent, replayRun, appendEventPayload, verifyHashChain } from '../repositories/events.js';
+import { appendEvent, appendEvents, appendEventPayload, countEvents, countOrdersInWindow, countStrategySwitchesInWindow, getEvent, replayRun, verifyHashChain } from '../repositories/events.js';
 import { projectEventTypeCounts, projectRunSummary } from '../projections/index.js';
 import { events, type InsertEvent } from '../schema.js';
 
@@ -258,5 +258,110 @@ describe('appendEventPayload + verifyHashChain', () => {
       .run();
 
     expect(verifyHashChain(db, runId)).toBe(false);
+  });
+});
+
+
+describe('countOrdersInWindow', () => {
+  it('returns 0 for empty DB', () => {
+    expect(countOrdersInWindow(db, 'run-1', 'agent-1', 60_000)).toBe(0);
+  });
+
+  it('counts only PAPER_ORDER_CREATED events within the window for a run and agent', () => {
+    const runId = 'run-orders';
+    const agentId = 'agent-x';
+    const now = Date.now();
+
+    appendEventPayload(db, {
+      runId,
+      type: 'PAPER_ORDER_CREATED',
+      source: agentId,
+      payload: { type: 'PAPER_ORDER_CREATED', order: { orderId: 'order-1' } },
+      timestamp: new Date(now - 30_000).toISOString(),
+    });
+    appendEventPayload(db, {
+      runId,
+      type: 'PAPER_ORDER_CREATED',
+      source: agentId,
+      payload: { type: 'PAPER_ORDER_CREATED', order: { orderId: 'order-2' } },
+      timestamp: new Date(now - 10_000).toISOString(),
+    });
+    appendEventPayload(db, {
+      runId,
+      type: 'PAPER_ORDER_CREATED',
+      source: 'other-agent',
+      payload: { type: 'PAPER_ORDER_CREATED', order: { orderId: 'order-3' } },
+      timestamp: new Date(now - 10_000).toISOString(),
+    });
+    appendEventPayload(db, {
+      runId,
+      type: 'MARKET_TICK_RECEIVED',
+      source: agentId,
+      payload: { symbol: 'BTC-USD' },
+      timestamp: new Date(now - 10_000).toISOString(),
+    });
+
+    expect(countOrdersInWindow(db, runId, agentId, 60_000)).toBe(2);
+  });
+
+  it('excludes order events outside the window', () => {
+    const runId = 'run-orders-old';
+    const agentId = 'agent-y';
+    appendEventPayload(db, {
+      runId,
+      type: 'PAPER_ORDER_CREATED',
+      source: agentId,
+      payload: { type: 'PAPER_ORDER_CREATED', order: { orderId: 'old-order' } },
+      timestamp: new Date(Date.now() - 120_000).toISOString(),
+    });
+
+    expect(countOrdersInWindow(db, runId, agentId, 60_000)).toBe(0);
+  });
+});
+
+describe('countStrategySwitchesInWindow', () => {
+  it('returns 0 for empty DB', () => {
+    expect(countStrategySwitchesInWindow(db, 'run-1', 'agent-1', 3_600_000)).toBe(0);
+  });
+
+  it('counts only STRATEGY_SWITCH_REQUESTED events within the window', () => {
+    const runId = 'run-switches';
+    const agentId = 'agent-sw';
+    const now = Date.now();
+
+    for (let i = 0; i < 3; i++) {
+      const timestamp = new Date(now - i * 60_000).toISOString();
+      appendEventPayload(db, {
+        runId,
+        type: 'STRATEGY_SWITCH_REQUESTED',
+        source: agentId,
+        payload: { runId, agentId, fromStrategyId: 'a', toStrategyId: 'b', timestamp },
+        timestamp,
+      });
+    }
+    appendEventPayload(db, {
+      runId,
+      type: 'STRATEGY_SWITCHED',
+      source: agentId,
+      payload: { agentId, fromStrategyId: 'b', toStrategyId: 'c', reason: 'test' },
+      timestamp: new Date(now - 10_000).toISOString(),
+    });
+
+    expect(countStrategySwitchesInWindow(db, runId, agentId, 3_600_000)).toBe(3);
+  });
+
+  it('excludes strategy switch request events outside the window', () => {
+    const runId = 'run-switches-old';
+    const agentId = 'agent-sw-old';
+    const old = new Date(Date.now() - 7_200_000).toISOString();
+    appendEventPayload(db, {
+      runId,
+      type: 'STRATEGY_SWITCH_REQUESTED',
+      source: agentId,
+      payload: { runId, agentId, fromStrategyId: 'a', toStrategyId: 'b', timestamp: old },
+      timestamp: old,
+    });
+
+    expect(countStrategySwitchesInWindow(db, runId, agentId, 3_600_000)).toBe(0);
   });
 });
