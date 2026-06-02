@@ -1,77 +1,145 @@
 # Technology Stack
 
-**Analysis Date:** 2026-05-31
+**Analysis Date:** 2026-06-01
 
-## Languages
+## Languages & Runtime
 
 **Primary:**
-- TypeScript 5.4.0 - All application code
+- TypeScript 5.4+ — all packages and apps; strict mode with `noUncheckedIndexedAccess`, `exactOptionalPropertyTypes`, `noImplicitOverride`, `isolatedModules`
+- JavaScript (ESM) — `"type": "module"` in every `package.json`; `"target": "ES2022"`, `"lib": ["ES2022"]`
 
-**Secondary:**
-- JavaScript (ES Modules) - Build scripts, ESLint configuration (`eslint.config.js`), and formatting configs
+**TypeScript Config Highlights (`tsconfig.base.json`):**
+- `moduleDetection: "force"`, `isolatedModules: true`
+- `declaration: true`, `declarationMap: true`, `sourceMap: true`
+- Backend packages: `module: "NodeNext"` / `moduleResolution: "NodeNext"` (tsup ESM output)
+- Frontend (`@arena/web`): `module: "ESNext"` / `moduleResolution: "Bundler"` (Vite-bundled)
+- Root `tsconfig.json` uses project `references` for all 11 workspace packages
 
-## Runtime
+**Runtime:**
+- Node.js >= 20.0.0 (enforced via `engines` in root `package.json`)
+- Browser (Vite/React for `apps/web`)
 
-**Environment:**
-- Node.js >= 20.0.0 (LTS)
-- Browser runtime (Vite/React dev environment for `apps/web`)
+## Core Frameworks
 
-**Package Manager:**
-- pnpm 9.15.9 (configured via workspace)
-- Lockfile: `pnpm-lock.yaml` present
+**API Server (`apps/api`):**
+- Raw Node.js `http.createServer` + `ws` ^8.18.0 WebSocket server (current implementation; Fastify is the target pattern per rules but not yet wired)
+- `pino` ^9.5.0 — structured logging with child loggers
 
-## Frameworks
+**Frontend (`apps/web`):**
+- Vite — dev + build (`vite dev`, `vite build`)
+- React — referenced in rules and UI package; `apps/web/src/index.ts` is minimal stub
+- Tailwind CSS — referenced in rules; not confirmed in `package.json` yet
 
-**Core:**
-- React (planned for `apps/web`)
-- Vite (planned for bundling `apps/web`)
-- Fastify (planned for `apps/api`)
+**Worker (`apps/worker`):**
+- Node.js process; `tsx watch` for dev, `tsup` for production build
+- Replay entrypoint: `src/replay.ts`
 
-**Testing:**
-- Vitest 1.6.0 - Test runner for all packages/apps
-- `@vitest/coverage-v8` 1.6.0 - Code coverage
+**Domain Packages:**
 
-**Build/Dev:**
-- tsup 8.0.0 - Bundling for packages and backend entry points
-- tsx 4.0.0 - Dynamic execution of TypeScript scripts (e.g. `scripts/create-strategy.ts`)
-- TypeScript compiler (`tsc`)
+| Package | Role |
+|---------|------|
+| `@arena/core` | Shared Zod schemas, Decimal.js money types, event/feed primitives, domain contracts |
+| `@arena/db` | Drizzle + better-sqlite3 client, schema, repositories, event projections |
+| `@arena/agents` | Paper agent interface + deterministic demo agents |
+| `@arena/broker-paper` | Paper broker, order/fill simulation, market tick handling |
+| `@arena/feeds` | Public feed adapters (Coinbase, Binance), Bottleneck rate limiters, normalizers |
+| `@arena/strategies` | Strategy manifests, signal-generation DSL |
+| `@arena/telemetry` | OpenTelemetry wiring (stub — `src/index.ts` exports nothing yet) |
+| `@arena/ui` | Shared React UI component library (stub) |
 
-## Key Dependencies
+## Build & Tooling
 
-**Critical:**
-- `decimal.js` 10.6.0 - High-precision arithmetic for all money, prices, order quantities, and P&L calculations (no float/double issues)
-- `zod` 4.4.3 - Runtime schema validation at boundary layers (APIs, events, DB)
-- `drizzle-orm` 0.40.0 - Lightweight ORM for event-sourced SQLite DB
-- `better-sqlite3` 9.4.3 - Native SQLite client for persistence
+**Bundler/Transpiler:**
+- `tsup` ^8.0.0 — ESM output (`--format esm --dts`) for all backend and shared packages
+- `tsx` ^4.0.0 — dev server runner (`tsx watch src/index.ts`) and script runner (`scripts/create-strategy.ts`)
 
-**Infrastructure:**
-- `eventemitter3` 5.0.4 - High-performance event emitter used in simulator primitives
-- `date-fns` 4.4.0 - Datetime parsing and formatting
-- `ts-pattern` 5.9.0 - Typesafe pattern matching for simulator events
-- `nanoid` 5.1.11 - High-performance secure unique ID generator
+**Test Runner:**
+- `vitest` ^1.6.0 — all packages; `vitest run --passWithNoTests` default
+- `@vitest/coverage-v8` ^1.6.0 — V8 coverage
+- `@vitest/ui` ^1.6.0 — UI mode
+
+**Linter/Formatter:**
+- `eslint` ^9.0.0 with `typescript-eslint` ^8.0.0 and `@eslint/js` ^9.0.0
+- `prettier` ^3.0.0
+- `vite-tsconfig-paths` ^4.3.0 — path alias resolution for Vite
+
+**Dead-code Detection:**
+- `knip` ^5.0.0
+
+**Database Migration:**
+- `drizzle-kit` ^0.28.0 — `generate` and `migrate` commands in `@arena/db`
+
+**Key Root Scripts:**
+```bash
+pnpm dev           # pnpm -r --parallel dev
+pnpm typecheck     # pnpm -r typecheck
+pnpm test          # pnpm -r test
+pnpm db:migrate    # drizzle-kit migrate via @arena/db
+pnpm sim:replay    # tsx src/replay.ts via @arena/worker
+pnpm strategy:create  # tsx scripts/create-strategy.ts
+```
+
+## Package Management
+
+**Manager:** pnpm 9.15.9 (pinned via `packageManager` field)
+**Lockfile:** `pnpm-lock.yaml` present
+**Workspace shape (`pnpm-workspace.yaml`):**
+```
+apps/*     → api, web, worker
+packages/* → agents, broker-paper, core, db, feeds, strategies, telemetry, ui
+```
+**Internal dependency protocol:** `workspace:*` or `workspace:^` throughout
+**Build lifecycle policy:**
+- `onlyBuiltDependencies: [better-sqlite3, esbuild]`
+- `ignoredBuiltDependencies: [fsevents]`
+
+## Database & Storage
+
+**Engine:** SQLite (local file, single-process write ownership)
+**Driver:** `better-sqlite3` ^11.3.0 — synchronous Node.js SQLite driver
+**ORM:** `drizzle-orm` ^0.40.0 with `drizzle-orm/better-sqlite3` adapter
+**Migration tool:** `drizzle-kit` ^0.28.0 (generates SQL + snapshot JSON under `drizzle/`)
+**Schema location:** `packages/db/src/schema.ts`
+**Client factory:** `packages/db/src/client.ts` — `createDb(filePath)` and `createMemoryDb()`
+
+**Runtime PRAGMAs applied on every non-readonly connection:**
+- `journal_mode = WAL`
+- `wal_autocheckpoint = 1000`
+- `foreign_keys = ON`
+
+**Money/P&L storage:**
+- `decimal.js` ^10.6.0 — `MoneyDecimal` configured with precision 28, ROUND_HALF_UP
+- Module: `packages/core/src/money/decimal.ts`
+- Stored as fixed-point decimal strings in SQLite text columns
+
+**Key domain dependencies in `@arena/core`:**
+- `zod` ^4.4.3 — all schema validation and TypeScript type derivation
+- `decimal.js` ^10.6.0 — money arithmetic
+- `date-fns` ^4.4.0 — date/time utilities
+- `eventemitter3` ^5.0.4 — typed event emission
+- `nanoid` ^5.1.11 — stable ID generation
+- `ts-pattern` ^5.9.0 — exhaustive pattern matching on simulator events
 
 ## Configuration
 
-**Environment:**
-- Configuration via environment variables loaded from `.env` files (template provided in `.env.example`).
-- Keys: `OPENROUTER_API_KEY`, `API_PORT`, `API_HOST`, `DB_FILE_NAME`, `VITE_API_BASE_URL`, `VITE_WS_BASE_URL`, `LOG_LEVEL`.
+**Environment vars (from existing INTEGRATIONS.md and source):**
+- `OPENROUTER_API_KEY` — LLM provider key
+- `DB_FILE_NAME` — SQLite file path (default: `./data/arena.db`)
+- `API_PORT`, `API_HOST` — server binding
+- `VITE_API_BASE_URL`, `VITE_WS_BASE_URL` — browser-safe URLs for frontend
+- `LOG_LEVEL` — Pino log level
 
-**Build:**
-- `pnpm-workspace.yaml` - Multi-package workspace definition
-- `tsconfig.json` & `tsconfig.base.json` - Compiler configuration
-- `eslint.config.js` - Coding standard rules
-- `prettier.config.js` - Auto-formatting config
+**Config files:**
+- `pnpm-workspace.yaml` — workspace membership
+- `tsconfig.json` + `tsconfig.base.json` — TypeScript project graph
+- `eslint.config.js` — lint rules
+- `prettier.config.js` — formatting
 
 ## Platform Requirements
 
-**Development:**
-- Cross-platform: macOS, Linux, or Windows (any system with Node.js >= 20 and pnpm >= 9)
-
-**Production:**
-- Distributed as a local-first simulation environment
-- Local filesystem required for SQLite event store (`arena.db`)
+**Development:** Cross-platform (macOS, Linux, Windows); Node.js >= 20, pnpm >= 9
+**Production:** Local-first; SQLite file on local filesystem; no cloud deployment target defined
 
 ---
 
-*Stack analysis: 2026-05-31*
-*Update after major dependency changes*
+*Stack analysis: 2026-06-01*
