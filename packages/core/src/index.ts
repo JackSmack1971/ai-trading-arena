@@ -185,6 +185,8 @@ export {
   PositionUpdatedPayloadSchema,
   PnLSnapshotPayloadSchema,
   StrategySwitchedPayloadSchema,
+  StrategySwitchRequestedPayloadSchema,
+  SimEventPayloadSchemas,
   RateLimitDelayedPayloadSchema,
   FeedConnectionPayloadSchema,
 } from './events/types.js';
@@ -202,6 +204,7 @@ export type {
   PositionUpdatedPayload,
   PnLSnapshotPayload,
   StrategySwitchedPayload,
+  StrategySwitchRequestedPayload,
   RateLimitDelayedPayload,
   FeedConnectionPayload,
 } from './events/types.js';

@@ -1,5 +1,5 @@
 import { createHash } from 'node:crypto';
-import { asc, desc, eq } from 'drizzle-orm';
+import { and, asc, desc, eq, gte } from 'drizzle-orm';
 import type { ArenaDb } from '../client.js';
 import { events, type EventRow, type InsertEvent } from '../schema.js';
 
@@ -117,4 +117,56 @@ export function verifyHashChain(db: ArenaDb, runId: string): boolean {
   }
 
   return true;
+}
+
+
+/**
+ * Counts PAPER_ORDER_CREATED events for a given runId + agentId within the last windowMs.
+ * Broker-paper stays DB-free; API/worker callers use this to feed deterministic risk counters.
+ */
+export function countOrdersInWindow(
+  db: ArenaDb,
+  runId: string,
+  agentId: string,
+  windowMs: number,
+): number {
+  const cutoff = new Date(Date.now() - windowMs).toISOString();
+  const rows = db
+    .select({ seq: events.seq })
+    .from(events)
+    .where(
+      and(
+        eq(events.runId, runId),
+        eq(events.source, agentId),
+        eq(events.type, 'PAPER_ORDER_CREATED'),
+        gte(events.timestamp, cutoff),
+      ),
+    )
+    .all();
+  return rows.length;
+}
+
+/**
+ * Counts STRATEGY_SWITCH_REQUESTED events for a given runId + agentId within the last windowMs.
+ */
+export function countStrategySwitchesInWindow(
+  db: ArenaDb,
+  runId: string,
+  agentId: string,
+  windowMs: number,
+): number {
+  const cutoff = new Date(Date.now() - windowMs).toISOString();
+  const rows = db
+    .select({ seq: events.seq })
+    .from(events)
+    .where(
+      and(
+        eq(events.runId, runId),
+        eq(events.source, agentId),
+        eq(events.type, 'STRATEGY_SWITCH_REQUESTED'),
+        gte(events.timestamp, cutoff),
+      ),
+    )
+    .all();
+  return rows.length;
 }

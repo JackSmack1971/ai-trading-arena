@@ -45,6 +45,7 @@ export function describeEventType(type: SimEventType): string {
     .with('POSITION_UPDATED', () => 'Position state updated')
     .with('PNL_SNAPSHOT_CREATED', () => 'P&L snapshot recorded')
     .with('STRATEGY_SWITCHED', () => 'Agent switched active strategy')
+    .with('STRATEGY_SWITCH_REQUESTED', () => 'Agent requested an active strategy switch')
     .with('RATE_LIMIT_DELAYED', () => 'Operation delayed by rate limiter')
     .with('FEED_DISCONNECTED', () => 'Feed disconnected')
     .with('FEED_RECONNECTED', () => 'Feed reconnected')

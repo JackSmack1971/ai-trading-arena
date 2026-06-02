@@ -13,6 +13,7 @@
     "lint": "pnpm -r lint",
     "typecheck": "pnpm -r typecheck",
     "db:migrate": "pnpm --filter @arena/db migrate",
+    "db:validate": "tsx scripts/db-validate.ts",
     "strategy:create": "tsx scripts/create-strategy.ts",
     "sim:replay": "pnpm --filter @arena/worker replay"
   },

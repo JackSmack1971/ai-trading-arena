@@ -18,7 +18,8 @@
     "@arena/db": "workspace:^",
     "drizzle-orm": "^0.40.0",
     "pino": "^9.5.0",
-    "ws": "^8.18.0"
+    "ws": "^8.18.0",
+    "zod": "^4.4.3"
   },
   "devDependencies": {
     "@types/ws": "^8.5.10"
