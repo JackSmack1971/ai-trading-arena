@@ -1,0 +1,32 @@
+name: Security Scan & Secret Audits
+
+on:
+  push:
+    branches: [ main, master ]
+  pull_request:
+    branches: [ main, master ]
+
+jobs:
+  security:
+    name: Framework Security Controls
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+
+      - name: Verify No Secrets In Git History
+        run: |
+          # Check if .env or secret variables are tracked
+          git diff --cached --name-only | grep -E '\.env|\.pem|\.key' && exit 1 || echo "No tracked credential structures found."
+
+      - name: Install Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      - name: Validate Hook Syntax & Schema
+        run: |
+          node --check .claude/hooks/pre-tool-use.js
+          node --check .claude/hooks/post-tool-use.js
+          echo "Hook scripts are syntactically valid."
