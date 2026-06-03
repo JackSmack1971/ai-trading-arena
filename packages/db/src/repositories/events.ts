@@ -1,5 +1,5 @@
-import { createHash } from 'node:crypto';
-import { and, asc, desc, eq, gte } from 'drizzle-orm';
+import { createHash, randomUUID } from 'node:crypto';
+import { and, asc, count, desc, eq, gte } from 'drizzle-orm';
 import type { ArenaDb } from '../client.js';
 import { events, type EventRow, type InsertEvent } from '../schema.js';
 
@@ -29,19 +29,30 @@ export function getEvent(db: ArenaDb, id: string): EventRow | undefined {
   return db.select().from(events).where(eq(events.id, id)).get();
 }
 
+/**
+ * Returns the number of persisted events for a given runId.
+ * Uses a COUNT aggregate instead of materialising rows. (WR-08)
+ */
 export function countEvents(db: ArenaDb, runId: string): number {
-  const rows = db
-    .select({ seq: events.seq })
+  const result = db
+    .select({ total: count() })
     .from(events)
     .where(eq(events.runId, runId))
-    .all();
-  return rows.length;
+    .get();
+  return result?.total ?? 0;
 }
 
 /**
  * Appends a new event payload to the log.
  * Resolves the next sequence number (seq) and computes the hash chain
  * (payloadHash = sha256(payloadJson + previousHash)).
+ *
+ * The read-then-insert is wrapped in a db.transaction() so the hash chain
+ * is always atomic: no concurrent call for the same runId can interleave
+ * between the SELECT and the INSERT. (CR-01)
+ *
+ * A random UUID suffix is appended to the event ID to prevent PRIMARY KEY
+ * collisions when the same runId is reused across restarts. (CR-02)
  */
 export function appendEventPayload(
   db: ArenaDb,
@@ -53,41 +64,46 @@ export function appendEventPayload(
     timestamp?: string;
   }
 ): EventRow {
-  const lastEvent = db
-    .select()
-    .from(events)
-    .where(eq(events.runId, params.runId))
-    .orderBy(desc(events.seq))
-    .limit(1)
-    .get();
+  return db.transaction((tx) => {
+    const lastEvent = tx
+      .select()
+      .from(events)
+      .where(eq(events.runId, params.runId))
+      .orderBy(desc(events.seq))
+      .limit(1)
+      .get();
 
-  const nextSeq = lastEvent ? lastEvent.seq + 1 : 0;
-  const previousHash = lastEvent ? lastEvent.payloadHash : null;
+    const nextSeq = lastEvent ? lastEvent.seq + 1 : 0;
+    const previousHash = lastEvent ? lastEvent.payloadHash : null;
 
-  const payloadJson = JSON.stringify(params.payload);
-  const hashInput = payloadJson + (previousHash ?? '');
-  const payloadHash = sha256(hashInput);
+    const payloadJson = JSON.stringify(params.payload);
+    const hashInput = payloadJson + (previousHash ?? '');
+    const payloadHash = sha256(hashInput);
 
-  const id = `evt-${params.runId}-${nextSeq}`;
-  const createdAt = new Date().toISOString();
-  const timestamp = params.timestamp || createdAt;
+    // UUID suffix prevents PRIMARY KEY collision on re-seed / restart. (CR-02)
+    const id = `evt-${params.runId}-${nextSeq}-${randomUUID().slice(0, 8)}`;
+    const createdAt = new Date().toISOString();
+    // Use ?? (not ||) so an explicit undefined falls back to createdAt,
+    // matching correct nullish semantics. (WR-05)
+    const timestamp = params.timestamp ?? createdAt;
 
-  const newEvent: InsertEvent = {
-    id,
-    runId: params.runId,
-    seq: nextSeq,
-    type: params.type,
-    source: params.source,
-    timestamp,
-    payloadJson,
-    payloadHash,
-    previousHash,
-    createdAt,
-  };
+    const newEvent: InsertEvent = {
+      id,
+      runId: params.runId,
+      seq: nextSeq,
+      type: params.type,
+      source: params.source,
+      timestamp,
+      payloadJson,
+      payloadHash,
+      previousHash,
+      createdAt,
+    };
 
-  db.insert(events).values(newEvent).run();
+    tx.insert(events).values(newEvent).run();
 
-  return newEvent as EventRow;
+    return newEvent as EventRow;
+  });
 }
 
 /**
