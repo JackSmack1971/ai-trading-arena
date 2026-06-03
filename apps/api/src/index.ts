@@ -1,7 +1,6 @@
 import path from 'node:path';
 import { createServer, type IncomingMessage, type Server, type ServerResponse } from 'node:http';
-import { fileURLToPath, URL } from 'node:url';
-import { pino } from 'pino';
+import { fileURLToPath, pathToFileURL, URL } from 'node:url';
 import { WebSocketServer, type WebSocket } from 'ws';
 import { migrate } from 'drizzle-orm/better-sqlite3/migrator';
 import { createDb, appendEventPayload, replayRun, verifyHashChain, countOrdersInWindow, countStrategySwitchesInWindow, type ArenaDb, type EventRow } from '@arena/db';
@@ -11,6 +10,7 @@ import {
   AgentDecisionSchema,
   AgentObservationSchema,
   NormalizedMarketEventSchema,
+  RunIdSchema,
   SimEventPayloadSchemas,
   MarketTickPayloadSchema,
   type AgentDecision,
@@ -22,9 +22,14 @@ import {
   type StrategyDescriptor,
   type StrategySignal,
 } from '@arena/core';
+import { createLogger } from '@arena/telemetry';
 
-const logger = pino({ name: 'api' });
+// Use createLogger from @arena/telemetry so redact.paths and messageKey are configured. (WR-06)
+const logger = createLogger('api');
 const DEFAULT_RUN_ID = 'demo-local-paper-arena';
+
+// Restrict CORS to the configured dashboard origin — never wildcard *. (CR-04)
+const ALLOWED_ORIGIN = process.env['CORS_ORIGIN'] ?? 'http://localhost:5173';
 
 export interface ApiServerOptions {
   db?: ArenaDb;
@@ -108,6 +113,10 @@ export function createApiServer(options: ApiServerOptions = {}): { server: Serve
   });
 
   const wss = new WebSocketServer({ noServer: true, maxPayload: 64 * 1024 });
+
+  // Track all active intervals so they can be cleared when the server closes. (WR-01)
+  const activeIntervals = new Set<ReturnType<typeof setInterval>>();
+
   server.on('upgrade', (req, socket, head) => {
     const url = new URL(req.url ?? '/', 'http://localhost');
     if (!url.pathname.startsWith('/ws/runs/') || !url.pathname.endsWith('/telemetry')) {
@@ -122,15 +131,51 @@ export function createApiServer(options: ApiServerOptions = {}): { server: Serve
 
   wss.on('connection', (ws: WebSocket, req) => {
     const url = new URL(req.url ?? '/', 'http://localhost');
-    const runId = decodeURIComponent(url.pathname.split('/')[3] ?? DEFAULT_RUN_ID);
+    const rawRunId = decodeURIComponent(url.pathname.split('/')[3] ?? '');
+
+    // Validate runId before using it in DB queries. (CR-05)
+    const parseResult = RunIdSchema.safeParse(rawRunId);
+    if (!parseResult.success) {
+      logger.warn({ rawRunId }, 'websocket rejected: invalid runId');
+      ws.close(1008, 'invalid run id');
+      return;
+    }
+    const runId = parseResult.data;
+
     sendWsJson(ws, { type: 'telemetry.snapshot', data: buildTelemetry(db, runId) });
 
-    const interval = setInterval(() => {
+    // Heartbeat: terminate unresponsive connections after one missed pong. (WR-01)
+    let isAlive = true;
+    ws.on('pong', () => { isAlive = true; });
+    const heartbeat = setInterval(() => {
+      if (!isAlive) {
+        ws.terminate();
+        return;
+      }
+      isAlive = false;
+      ws.ping();
+    }, 30_000);
+
+    const telemetryInterval = setInterval(() => {
       sendWsJson(ws, { type: 'telemetry.snapshot', data: buildTelemetry(db, runId) });
     }, 2_000);
 
-    ws.on('close', () => clearInterval(interval));
+    activeIntervals.add(heartbeat);
+    activeIntervals.add(telemetryInterval);
+
+    ws.on('close', () => {
+      clearInterval(heartbeat);
+      clearInterval(telemetryInterval);
+      activeIntervals.delete(heartbeat);
+      activeIntervals.delete(telemetryInterval);
+    });
     ws.on('error', (err) => logger.warn({ err, runId }, 'telemetry websocket error'));
+  });
+
+  // Clear all remaining intervals when the WSS closes (e.g. graceful shutdown). (WR-01)
+  wss.on('close', () => {
+    for (const iv of activeIntervals) clearInterval(iv);
+    activeIntervals.clear();
   });
 
   return { server, db };
@@ -161,7 +206,16 @@ async function handleHttp(req: IncomingMessage, res: ServerResponse, db: ArenaDb
 
   const match = url.pathname.match(/^\/api\/runs\/([^/]+)\/(events|telemetry|summary)$/);
   if (req.method === 'GET' && match) {
-    const runId = decodeURIComponent(match[1] ?? DEFAULT_RUN_ID);
+    const rawRunId = decodeURIComponent(match[1] ?? '');
+
+    // Validate runId before DB use. (CR-05)
+    const parseResult = RunIdSchema.safeParse(rawRunId);
+    if (!parseResult.success) {
+      sendJson(res, 400, { error: 'invalid_run_id' });
+      return;
+    }
+    const runId = parseResult.data;
+
     const resource = match[2];
     if (resource === 'events') {
       seedDemoIfEmpty(db, runId);
@@ -300,8 +354,10 @@ function sendWsJson(ws: WebSocket, body: unknown): void {
   ws.send(JSON.stringify(body));
 }
 
+// Restrict CORS to the configured dashboard origin; include Vary: Origin. (CR-04)
 function setCorsHeaders(res: ServerResponse): void {
-  res.setHeader('access-control-allow-origin', '*');
+  res.setHeader('access-control-allow-origin', ALLOWED_ORIGIN);
+  res.setHeader('vary', 'Origin');
   res.setHeader('access-control-allow-methods', 'GET,POST,OPTIONS');
   res.setHeader('access-control-allow-headers', 'content-type');
 }
@@ -367,8 +423,12 @@ function runDeterministicDemo(options: { db: ArenaDb; runId: string; agents?: Pa
       });
 
       const decision = AgentDecisionSchema.parse(agent.decide(observation));
-      appendDecision(db, runId, agent.agentId, observation.observationId, decision, tickEvent.exchangeTimestamp);
-      applyDecisionThroughPaperBroker(broker, agent.agentId, decision, tickIndex);
+
+      // Extract decisionId as a shared variable so both the persisted event and the
+      // broker order carry the same value — enabling forensic join by decisionId. (WR-03)
+      const decisionId = `decision-${agent.agentId}-${observation.observationId}`;
+      appendDecision(db, runId, agent.agentId, observation.observationId, decision, tickEvent.exchangeTimestamp, decisionId);
+      applyDecisionThroughPaperBroker(broker, agent.agentId, decision, decisionId);
       broker.processMarketTick(marketTick);
       broker.getPnLSnapshot(tickEvent.exchangeTimestamp);
     }
@@ -432,14 +492,14 @@ function createTick(sequence: number, last: string, timestamp: string): Normaliz
   });
 }
 
-function appendDecision(db: ArenaDb, runId: string, agentId: string, observationId: string, decision: AgentDecision, timestamp: string): void {
+function appendDecision(db: ArenaDb, runId: string, agentId: string, observationId: string, decision: AgentDecision, timestamp: string, decisionId: string): void {
   appendEventPayload(db, {
     runId,
     type: 'AGENT_DECISION_RECEIVED',
     source: agentId,
     payload: {
       observationId,
-      decisionId: `decision-${agentId}-${observationId}`,
+      decisionId,
       agentId,
       decision,
       schemaValid: true,
@@ -450,15 +510,15 @@ function appendDecision(db: ArenaDb, runId: string, agentId: string, observation
   });
 }
 
-function applyDecisionThroughPaperBroker(broker: PaperBroker, agentId: string, decision: AgentDecision, tickIndex: number): void {
+function applyDecisionThroughPaperBroker(broker: PaperBroker, agentId: string, decision: AgentDecision, decisionId: string): void {
   if (decision.action !== 'PLACE_MARKET_ORDER' || !decision.symbol || !decision.side || !decision.quantityUsd) return;
   broker.placeMarketOrder({
-    orderId: `paper-${agentId}-${tickIndex}`,
+    orderId: `paper-${agentId}-${decisionId}`,
     symbol: decision.symbol,
     side: decision.side,
     quantityUsd: decision.quantityUsd,
     orderType: 'MARKET',
-    decisionId: `decision-${agentId}-${tickIndex}`,
+    decisionId,
     executionMode: 'PAPER',
     executionVenue: 'PAPER',
   });
@@ -565,7 +625,8 @@ function mustGetBroker(brokers: Map<string, PaperBroker>, agentId: string): Pape
   return broker;
 }
 
-const isEntry = import.meta.url === `file://${process.argv[1]?.replace(/\\/g, '/')}`;
+// Use pathToFileURL for a correct cross-platform isEntry comparison. (CR-06)
+const isEntry = import.meta.url === pathToFileURL(process.argv[1] ?? '').href;
 
 if (isEntry) {
   const port = Number.parseInt(process.env['PORT'] ?? '8787', 10);
