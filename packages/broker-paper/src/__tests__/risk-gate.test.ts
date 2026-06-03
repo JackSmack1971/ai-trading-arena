@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { PaperRiskGate } from '../risk-gate.js';
-import type { RiskGateContext } from '../risk-gate.js';
+import type { RiskGateContext, StrategySwitchRiskContext } from '../risk-gate.js';
 import type { RiskConfig } from '@arena/core';
 
 const T1 = '2024-01-01T00:00:00.000Z';
@@ -474,7 +474,7 @@ describe('MAX_POSITION_SIZE boundary-value tests', () => {
 
 describe('evaluateStrategySwitch boundary-value tests', () => {
   const gate = new PaperRiskGate({ ...LENIENT_RISK_CONFIG, maxStrategySwitchesPerHour: 3 });
-  const baseCtx: import('../risk-gate.js').StrategySwitchRiskContext = {
+  const baseCtx: StrategySwitchRiskContext = {
     runId: 'run-gate',
     agentId: 'agent-a',
     timestamp: T1,
