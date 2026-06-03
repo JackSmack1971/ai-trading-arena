@@ -71,9 +71,9 @@ The following are expected by users eventually but deferred beyond MVP:
 | FOUND-02 (API-03) | Phase 1 | — | Not started |
 | FOUND-03 (API-04) | Phase 1 | — | Not started |
 | FOUND-04 (AGENT-02) | Phase 1 | — | Not started |
-| API-01 | Phase 2 | — | Not started |
-| API-02 | Phase 2 | — | Not started |
-| API-03 (TEST-01) | Phase 2 | — | Not started |
+| API-01 | Phase 2 | API-02-01, API-02-02, API-02-03, API-02-06 | Issues prepared |
+| API-02 | Phase 2 | API-02-04, API-02-05, API-02-06 | Issues prepared |
+| API-03 (TEST-01) | Phase 2 | API-02-05, API-02-06 | Issues prepared |
 | CORE-01 (PROJ-01) | Phase 3 | — | Not started |
 | CORE-02 (AGENT-01) | Phase 3 | — | Not started |
 | DASH-01 (WEB-01) | Phase 4 | — | Not started |

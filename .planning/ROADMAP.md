@@ -58,7 +58,16 @@ Plans:
   3. `fastify.inject` tests pass for all HTTP route contracts (status code, response envelope, Zod shape) and WebSocket lifecycle (connect, message, close, heartbeat cleanup)
   4. Hash chain verification passes on a full demo run through the migrated Fastify server
 
-**Plans**: TBD
+**Plans**: 6 Linear issues prepared in `.planning/phases/02-api-migration/02-linear-issues.md`
+
+Plans:
+
+- [ ] API-02-01 — Add Fastify dependencies and `buildApp()` shell
+- [ ] API-02-02 — Migrate HTTP routes to canonical `/v1` modules
+- [ ] API-02-03 — Add Zod request/response schemas and JSON Schema wiring
+- [ ] API-02-04 — Migrate telemetry WebSocket to Fastify plugin
+- [ ] API-02-05 — Add Fastify route and WebSocket lifecycle tests
+- [ ] API-02-06 — Run Phase 2 acceptance gate and update planning state
 
 ### Phase 3: Core Features
 
@@ -116,7 +125,7 @@ Phases execute in numeric order: 1 → 2 → 3 → 4 → 5
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
 | 1. Foundation | 6/6 | Complete    | 2026-06-03 |
-| 2. API Migration | 0/TBD | Not started | - |
+| 2. API Migration | 0/6 | Issues prepared | - |
 | 3. Core Features | 0/TBD | Not started | - |
 | 4. React Dashboard | 0/TBD | Not started | - |
 | 5. E2E Tests | 0/TBD | Not started | - |

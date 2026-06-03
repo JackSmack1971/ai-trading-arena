@@ -2,14 +2,14 @@
 gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
-status: completed
-stopped_at: Phase 01 Plan 06 complete — SC-2 gap closed
-last_updated: "2026-06-03T11:03:34.562Z"
+status: phase-2-issues-prepared
+stopped_at: Phase 2 Linear issues prepared — awaiting Linear import/execution
+last_updated: "2026-06-03T12:00:00.000Z"
 last_activity: 2026-06-03
 progress:
   total_phases: 5
   completed_phases: 1
-  total_plans: 6
+  total_plans: 12
   completed_plans: 6
   percent: 20
 ---
@@ -21,16 +21,16 @@ progress:
 See: .planning/PROJECT.md (updated 2026-06-01)
 
 **Core value:** An AI agent you can watch make paper trades in real time — the full loop from LLM decision to chart update, replayable and auditable.
-**Current focus:** Phase 01 — foundation
+**Current focus:** Phase 02 — API migration
 
 ## Current Position
 
 Phase: 2
 Plan: Not started
-Status: All 6 plans executed — SC-2 gap closed, Phase 01 complete
+Status: Phase 2 Linear issue payload prepared; no Linear credentials/MCP available in this environment
 Last activity: 2026-06-03
 
-Progress: [█░░░░░░░░░] 17%
+Progress: [█████░░░░░] 50% of planned issue set prepared; 20% of phases complete
 
 ## Performance Metrics
 
@@ -68,13 +68,15 @@ Recent decisions affecting current work:
 
 ### Pending Todos
 
-None yet.
+- Import `.planning/phases/02-api-migration/02-linear-issues.md` into Linear once a Linear MCP/server/token is available.
+- Execute Phase 2 issues in dependency order: API-02-01 → API-02-02 → API-02-03 → API-02-04 → API-02-05 → API-02-06.
 
 ### Blockers/Concerns
 
 - Phase 3 (AGENT-01): OpenRouter + Zod v4 structured output interop unverified — requires round-trip Vitest fixture before wiring into simulation loop
 - Phase 3 (AGENT-01): LLM field-name casing (snake_case vs camelCase) may cause universal NOOP — empirical test with real API key needed
 - Phase 1 (FOUND-03): Existing arena.db events may fail new Zod schemas — run verifyHashChain + projection smoke test after API-04 to confirm backward compatibility
+- Phase 2 Linear import: Direct creation is blocked until Linear credentials, CLI, or MCP tooling is made available
 
 ## Deferred Items
 
@@ -86,6 +88,6 @@ Items acknowledged and carried forward from previous milestone close:
 
 ## Session Continuity
 
-Last session: 2026-06-03T10:46:34Z
-Stopped at: Phase 01 Plan 06 complete — SC-2 gap closed
-Resume file: .planning/phases/01-foundation/01-06-SUMMARY.md
+Last session: 2026-06-03T12:00:00Z
+Stopped at: Phase 2 Linear issues prepared — awaiting Linear import/execution
+Resume file: .planning/phases/02-api-migration/02-linear-issues.md
