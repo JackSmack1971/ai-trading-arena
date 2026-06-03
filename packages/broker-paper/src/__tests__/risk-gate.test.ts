@@ -281,3 +281,215 @@ describe('MAX_TOTAL_EXPOSURE boundary-value tests', () => {
     expect(result.event.ruleId).toBe('MAX_TOTAL_EXPOSURE');
   });
 });
+
+// ── MAX_ORDERS_PER_MINUTE boundary-value tests ────────────────────────────────────────────────
+
+describe('MAX_ORDERS_PER_MINUTE boundary-value tests', () => {
+  const gate = new PaperRiskGate({ ...LENIENT_RISK_CONFIG, maxOrdersPerMinute: 5 });
+
+  it('PASSED when ordersThisMinute equals the limit exactly (5)', () => {
+    const ctx = makeCtx({ ordersThisMinute: 5 });
+    const result = gate.evaluateOrder(ctx);
+    expect(result.decision).toBe('PASSED');
+  });
+
+  it('REJECTED when ordersThisMinute exceeds limit by one (6), fires MAX_ORDERS_PER_MINUTE', () => {
+    const ctx = makeCtx({ ordersThisMinute: 6 });
+    const result = gate.evaluateOrder(ctx);
+    expect(result.decision).toBe('REJECTED');
+    expect(result.event.ruleId).toBe('MAX_ORDERS_PER_MINUTE');
+  });
+});
+
+// ── MAX_STRATEGY_SWITCHES_PER_HOUR boundary-value tests (evaluateOrder path) ─────────────────
+
+describe('MAX_STRATEGY_SWITCHES_PER_HOUR boundary-value tests (evaluateOrder)', () => {
+  const gate = new PaperRiskGate({ ...LENIENT_RISK_CONFIG, maxStrategySwitchesPerHour: 3 });
+
+  it('PASSED when strategySwitchesThisHour equals the limit exactly (3)', () => {
+    const ctx = makeCtx({ strategySwitchesThisHour: 3 });
+    const result = gate.evaluateOrder(ctx);
+    expect(result.decision).toBe('PASSED');
+  });
+
+  it('REJECTED when strategySwitchesThisHour exceeds limit by one (4), fires MAX_STRATEGY_SWITCHES_PER_HOUR', () => {
+    const ctx = makeCtx({ strategySwitchesThisHour: 4 });
+    const result = gate.evaluateOrder(ctx);
+    expect(result.decision).toBe('REJECTED');
+    expect(result.event.ruleId).toBe('MAX_STRATEGY_SWITCHES_PER_HOUR');
+  });
+});
+
+// ── NO_REAL_EXECUTION boundary-value tests ────────────────────────────────────────────────────
+
+describe('NO_REAL_EXECUTION boundary-value tests', () => {
+  const gate = new PaperRiskGate(LENIENT_RISK_CONFIG);
+
+  it('PASSED when executionMode is PAPER and executionVenue is PAPER', () => {
+    const ctx = makeCtx({
+      request: {
+        symbol: 'BTC-USD',
+        side: 'BUY',
+        quantityUsd: '100.00',
+        orderType: 'MARKET',
+        executionMode: 'PAPER',
+        executionVenue: 'PAPER',
+      },
+    });
+    const result = gate.evaluateOrder(ctx);
+    expect(result.decision).toBe('PASSED');
+  });
+
+  it('REJECTED when executionMode is LIVE, fires NO_REAL_EXECUTION', () => {
+    const ctx = makeCtx({
+      request: {
+        symbol: 'BTC-USD',
+        side: 'BUY',
+        quantityUsd: '100.00',
+        orderType: 'MARKET',
+        executionMode: 'LIVE',
+      },
+    });
+    const result = gate.evaluateOrder(ctx);
+    expect(result.decision).toBe('REJECTED');
+    expect(result.event.ruleId).toBe('NO_REAL_EXECUTION');
+  });
+
+  it('REJECTED when executionVenue is REAL, fires NO_REAL_EXECUTION', () => {
+    const ctx = makeCtx({
+      request: {
+        symbol: 'BTC-USD',
+        side: 'BUY',
+        quantityUsd: '100.00',
+        orderType: 'MARKET',
+        executionVenue: 'REAL',
+      },
+    });
+    const result = gate.evaluateOrder(ctx);
+    expect(result.decision).toBe('REJECTED');
+    expect(result.event.ruleId).toBe('NO_REAL_EXECUTION');
+  });
+});
+
+// ── NO_LEVERAGE boundary-value tests ─────────────────────────────────────────────────────────
+
+describe('NO_LEVERAGE boundary-value tests', () => {
+  const gate = new PaperRiskGate({ ...LENIENT_RISK_CONFIG, allowLeverage: false });
+
+  it('PASSED when leverageMultiplier is undefined (no leverage)', () => {
+    const ctx = makeCtx();
+    const result = gate.evaluateOrder(ctx);
+    expect(result.decision).toBe('PASSED');
+  });
+
+  it('PASSED when leverageMultiplier is exactly 1 (no leverage)', () => {
+    const ctx = makeCtx({
+      request: {
+        symbol: 'BTC-USD',
+        side: 'BUY',
+        quantityUsd: '100.00',
+        orderType: 'MARKET',
+        leverageMultiplier: '1',
+      },
+    });
+    const result = gate.evaluateOrder(ctx);
+    expect(result.decision).toBe('PASSED');
+  });
+
+  it('REJECTED when leverageMultiplier is 1.01 (above 1), fires NO_LEVERAGE', () => {
+    const ctx = makeCtx({
+      request: {
+        symbol: 'BTC-USD',
+        side: 'BUY',
+        quantityUsd: '100.00',
+        orderType: 'MARKET',
+        leverageMultiplier: '1.01',
+      },
+    });
+    const result = gate.evaluateOrder(ctx);
+    expect(result.decision).toBe('REJECTED');
+    expect(result.event.ruleId).toBe('NO_LEVERAGE');
+  });
+});
+
+// ── MAX_POSITION_SIZE boundary-value tests ────────────────────────────────────────────────────
+
+describe('MAX_POSITION_SIZE boundary-value tests', () => {
+  const gate = new PaperRiskGate({ ...LENIENT_RISK_CONFIG, maxPositionPct: '50' });
+
+  it('PASSED when requestedPositionPct is exactly at threshold (50%)', () => {
+    // equity=1000, quantityUsd=500 → 500/1000*100 = 50% → gt('50') is false → PASSED
+    const ctx = makeCtx({
+      request: {
+        symbol: 'BTC-USD',
+        side: 'BUY',
+        quantityUsd: '500.00',
+        orderType: 'MARKET',
+      },
+      portfolio: {
+        agentId: 'agent-a',
+        cashBalance: '1000.00',
+        equity: '1000.00',
+        totalPositionValue: '0',
+        unrealizedPnl: '0',
+        realizedPnl: '0',
+        exposurePct: '0',
+        currentDrawdownPct: '0',
+        snapshotAt: T1,
+      },
+      availableCash: '1000.00',
+    });
+    const result = gate.evaluateOrder(ctx);
+    expect(result.decision).toBe('PASSED');
+  });
+
+  it('REJECTED when requestedPositionPct exceeds threshold by one cent (500.01/1000 > 50%), fires MAX_POSITION_SIZE', () => {
+    const ctx = makeCtx({
+      request: {
+        symbol: 'BTC-USD',
+        side: 'BUY',
+        quantityUsd: '500.01',
+        orderType: 'MARKET',
+      },
+      portfolio: {
+        agentId: 'agent-a',
+        cashBalance: '1000.00',
+        equity: '1000.00',
+        totalPositionValue: '0',
+        unrealizedPnl: '0',
+        realizedPnl: '0',
+        exposurePct: '0',
+        currentDrawdownPct: '0',
+        snapshotAt: T1,
+      },
+      availableCash: '1000.00',
+    });
+    const result = gate.evaluateOrder(ctx);
+    expect(result.decision).toBe('REJECTED');
+    expect(result.event.ruleId).toBe('MAX_POSITION_SIZE');
+  });
+});
+
+// ── evaluateStrategySwitch boundary-value tests ───────────────────────────────────────────────
+
+describe('evaluateStrategySwitch boundary-value tests', () => {
+  const gate = new PaperRiskGate({ ...LENIENT_RISK_CONFIG, maxStrategySwitchesPerHour: 3 });
+  const baseCtx: import('../risk-gate.js').StrategySwitchRiskContext = {
+    runId: 'run-gate',
+    agentId: 'agent-a',
+    timestamp: T1,
+    strategyId: 'demo-momentum',
+    strategySwitchesThisHour: 0,
+  };
+
+  it('PASSED when strategySwitchesThisHour equals the limit exactly (3)', () => {
+    const result = gate.evaluateStrategySwitch({ ...baseCtx, strategySwitchesThisHour: 3 });
+    expect(result.decision).toBe('PASSED');
+  });
+
+  it('REJECTED when strategySwitchesThisHour exceeds limit by one (4), fires MAX_STRATEGY_SWITCHES_PER_HOUR', () => {
+    const result = gate.evaluateStrategySwitch({ ...baseCtx, strategySwitchesThisHour: 4 });
+    expect(result.decision).toBe('REJECTED');
+    expect(result.event.ruleId).toBe('MAX_STRATEGY_SWITCHES_PER_HOUR');
+  });
+});
