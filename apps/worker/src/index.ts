@@ -1,11 +1,13 @@
-import { pino } from 'pino';
+import { pathToFileURL } from 'node:url';
 import { createDb, appendEventPayload } from '@arena/db';
 import { CoinbaseFeedAdapter } from '@arena/feeds';
 import type { ArenaDb } from '@arena/db';
 import { ensureWorkerDbMigrated } from './db.js';
 import type { MarketFeedAdapter } from '@arena/core';
+import { createLogger } from '@arena/telemetry';
 
-const logger = pino({ name: 'worker' });
+// Use createLogger from @arena/telemetry so redact.paths and messageKey are configured. (WR-06)
+const logger = createLogger('worker');
 
 export interface WorkerOptions {
   db?: ArenaDb;
@@ -94,7 +96,8 @@ export async function runWorker(opts?: WorkerOptions): Promise<WorkerHandle> {
 // Module-guarded entry point: only run when this file is executed directly,
 // never when it is imported (e.g., in tests). All process-level signal handlers
 // and process.exit calls live here, never inside runWorker.
-const isEntry = import.meta.url === `file://${process.argv[1]?.replace(/\\/g, '/')}`;
+// Use pathToFileURL for a correct cross-platform isEntry comparison. (CR-06)
+const isEntry = import.meta.url === pathToFileURL(process.argv[1] ?? '').href;
 
 async function main(): Promise<void> {
   let handle: WorkerHandle | null = null;
