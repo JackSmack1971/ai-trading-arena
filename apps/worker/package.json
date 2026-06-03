@@ -18,6 +18,7 @@
     "@arena/core": "workspace:*",
     "@arena/db": "workspace:*",
     "@arena/feeds": "workspace:*",
+    "@arena/telemetry": "workspace:*",
     "drizzle-orm": "^0.40.0",
     "pino": "^9.5.0"
   }

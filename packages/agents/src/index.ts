@@ -94,3 +94,8 @@ export function createDemoPaperAgents(): PaperAgent[] {
     }),
   ];
 }
+
+export { createOpenRouterClient } from './openrouter-client.js';
+export type { OpenRouterClientOptions } from './openrouter-client.js';
+export { createOpenRouterAgent } from './openrouter-agent.js';
+export type { OpenRouterAgentConfig, OpenRouterPaperAgent } from './openrouter-agent.js';

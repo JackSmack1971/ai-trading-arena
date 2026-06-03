@@ -1,5 +1,12 @@
-import { describe, it, expect } from 'vitest';
-import { createLogger, createChildLogger, SPAN_NAMES, METRIC_NAMES, ATTR_KEYS } from '../index.js';
+import { describe, expect, it } from 'vitest';
+import { ATTR_KEYS, METRIC_NAMES, SPAN_NAMES, createChildLogger, createLogger, createRootLogger } from '../index.js';
+
+function captureLogger(level = 'info') {
+  const lines: string[] = [];
+  const stream = { write: (line: string) => { lines.push(line); } };
+  const logger = createRootLogger({ name: 'test', level, stream });
+  return { logger, lines };
+}
 
 describe('createLogger', () => {
   it('returns a Pino logger instance', () => {
@@ -12,16 +19,31 @@ describe('createLogger', () => {
 
   it('sets the logger name binding', () => {
     const logger = createLogger('feeds');
-    // Pino exposes the bindings via logger.bindings()
     expect(logger.bindings()['name']).toBe('feeds');
   });
 
+  it('uses the configured level', () => {
+    const { logger } = captureLogger('debug');
+    expect(logger.level).toBe('debug');
+  });
+
+  it('redacts apiKey fields', () => {
+    const { logger, lines } = captureLogger();
+    logger.info({ apiKey: 'secret-token' }, 'redaction check');
+    const record = JSON.parse(lines[0]!);
+    expect(record.apiKey).toBe('[REDACTED]');
+    expect(lines[0]).not.toContain('secret-token');
+  });
+
   it('exposes a child method that merges bindings', () => {
-    const parent = createLogger('parent');
-    const child = createChildLogger(parent, { traceId: 'abc-123', requestId: 'req-1' });
+    const { logger, lines } = captureLogger();
+    const child = createChildLogger(logger, { traceId: 'abc-123', requestId: 'req-1' });
+    child.info('child check');
     const childBindings = child.bindings();
+    const record = JSON.parse(lines[0]!);
     expect(childBindings['traceId']).toBe('abc-123');
     expect(childBindings['requestId']).toBe('req-1');
+    expect(record.traceId).toBe('abc-123');
   });
 });
 
@@ -60,7 +82,7 @@ describe('METRIC_NAMES', () => {
   it('all values are non-empty strings', () => {
     for (const [key, value] of Object.entries(METRIC_NAMES)) {
       expect(typeof value, `METRIC_NAMES.${key} should be string`).toBe('string');
-      expect((value as string).length, `METRIC_NAMES.${key} should be non-empty`).toBeGreaterThan(0);
+      expect(value.length, `METRIC_NAMES.${key} should be non-empty`).toBeGreaterThan(0);
     }
   });
 });
@@ -77,7 +99,7 @@ describe('ATTR_KEYS', () => {
   it('all values are non-empty strings', () => {
     for (const [key, value] of Object.entries(ATTR_KEYS)) {
       expect(typeof value, `ATTR_KEYS.${key} should be string`).toBe('string');
-      expect((value as string).length, `ATTR_KEYS.${key} should be non-empty`).toBeGreaterThan(0);
+      expect(value.length, `ATTR_KEYS.${key} should be non-empty`).toBeGreaterThan(0);
     }
   });
 });

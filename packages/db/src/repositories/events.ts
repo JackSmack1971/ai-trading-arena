@@ -189,3 +189,23 @@ export function countStrategySwitchesInWindow(
     .all();
   return rows.length;
 }
+
+export function countOrdersInLastMinute(db: ArenaDb, runId: string): number {
+  const cutoff = new Date(Date.now() - 60_000).toISOString();
+  const result = db
+    .select({ total: count() })
+    .from(events)
+    .where(and(eq(events.runId, runId), eq(events.type, 'PAPER_ORDER_CREATED'), gte(events.createdAt, cutoff)))
+    .get();
+  return result?.total ?? 0;
+}
+
+export function countStrategySwitchesInLastHour(db: ArenaDb, runId: string): number {
+  const cutoff = new Date(Date.now() - 3_600_000).toISOString();
+  const result = db
+    .select({ total: count() })
+    .from(events)
+    .where(and(eq(events.runId, runId), eq(events.type, 'STRATEGY_SWITCH_REQUESTED'), gte(events.createdAt, cutoff)))
+    .get();
+  return result?.total ?? 0;
+}
