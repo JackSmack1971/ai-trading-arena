@@ -1,7 +1,7 @@
 ---
 name: openai-openrouter
 description: OpenAI Node SDK usage standards when routed through OpenRouter.
-globs:
+paths:
   - "apps/**/*.{ts,tsx,js,jsx,mjs,cjs}"
   - "packages/**/*.{ts,tsx,js,jsx,mjs,cjs}"
   - "src/**/*.{ts,tsx,js,jsx,mjs,cjs}"

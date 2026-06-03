@@ -1,7 +1,7 @@
 ---
 name: fastify-api-standards
 description: Fastify HTTP API implementation and plugin-structure standards.
-globs:
+paths:
   - "src/**/*.{ts,js}"
   - "app/**/*.{ts,js}"
   - "server/**/*.{ts,js}"

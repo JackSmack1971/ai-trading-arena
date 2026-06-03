@@ -1,7 +1,7 @@
 ---
 name: rule-catalog
 description: Rule-selection index defining precedence and the smallest relevant rule set before editing.
-globs:
+paths:
   - "CLAUDE.md"
   - "AGENTS.md"
   - ".claude/**/*.md"

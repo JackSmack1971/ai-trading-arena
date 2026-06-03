@@ -1,7 +1,7 @@
 ---
 name: ui-data-visualization
 description: React dashboard, charting, and analytics UI standards.
-globs:
+paths:
   - "apps/web/**/*.{ts,tsx}"
   - "packages/ui/**/*.{ts,tsx}"
   - "src/components/**/*.{ts,tsx}"

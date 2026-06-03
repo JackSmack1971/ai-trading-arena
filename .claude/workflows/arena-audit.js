@@ -174,7 +174,7 @@ async function hasRuleFrontmatter(target) {
     const frontmatter = match[1];
     const hasName = /^name:\s*.+$/m.test(frontmatter);
     const hasDescription = /^description:\s*.+$/m.test(frontmatter);
-    const hasScopes = /^globs:\s*(?:\[[\s\S]*?\]|\r?\n(?:\s*-\s*.+\r?\n?)*)/m.test(frontmatter);
+    const hasScopes = /^paths:\s*(?:\[[\s\S]*?\]|\r?\n(?:\s*-\s*.+\r?\n?)*)/m.test(frontmatter);
 
     return hasName && hasDescription && hasScopes;
   } catch {
@@ -320,7 +320,7 @@ async function run(context = {}) {
           severity: "high",
           kind: "rule-frontmatter",
           path: `.claude/rules/${entry.name}`,
-          message: "Rule files must use frontmatter with at least name, description, and scoped globs."
+          message: "Rule files must use frontmatter with at least name, description, and scoped paths."
         });
         continue;
       }

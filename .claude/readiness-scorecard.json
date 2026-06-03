@@ -38,8 +38,9 @@
     "context_efficiency": {
       "score": 5,
       "evidence": [
-        "Compacted CLAUDE.md is under 130 lines, referencing modular codebase files in .planning/codebase/.",
-        "Path-scoped rules in .claude/rules/ handle lazy-loading for active developer contexts."
+        "Compacted CLAUDE.md remains under 130 lines and points technical context to committed docs rather than gitignored local planning paths.",
+        "Path-scoped rules in .claude/rules/ now use the Claude Code paths frontmatter key for lazy-loading in active developer contexts.",
+        "node .claude/workflows/arena-audit.js validates paths-based rule frontmatter with 0 findings."
       ],
       "fix": ""
     },
@@ -47,7 +48,8 @@
       "score": 5,
       "evidence": [
         "Created .claude/commands/verify-changes.md to define the closed-loop verification pipeline.",
-        "Pipeline gates (typecheck, lint, test) successfully validated in workspace run."
+        "Created /gsd-quick, /gsd-debug, and /gsd-execute-phase commands so CLAUDE.md workflow entry points resolve.",
+        "Structural audit completed with 0 findings after the paths frontmatter migration."
       ],
       "fix": ""
     },
@@ -63,7 +65,8 @@
       "score": 5,
       "evidence": [
         "Modular directory structure cleanly separates agents, commands, hooks, rules, schemas, and skills.",
-        "Created settings.local.json.example to manage developer overrides without checking in credentials."
+        "settings.local.json.example preserves the shared disableSkillShellExecution safety default and .claude/README.md documents explicit opt-in risk.",
+        "CLAUDE.md read-order wording clarifies that AGENTS.md is a human reference document, not an automatic import."
       ],
       "fix": ""
     },
@@ -87,10 +90,9 @@
   "critical_findings": [],
   "recommended_edits": [],
   "verification_evidence": [
-    "Run node .claude/workflows/arena-audit.js (0 findings, 100% checkmark alignment)",
-    "Run pnpm typecheck (completed with 0 errors)",
-    "Run pnpm lint (completed with 0 errors, 14 warnings)",
-    "Run pnpm test (completed with 297 tests passed across all projects)"
+    "Run node .claude/workflows/arena-audit.js on 2026-06-03: status complete, 0 findings, rules 32, commands 8, skills 4, agents 5, hooks 2, workflows 1, outputStyles 4.",
+    "Run rg -n \"^globs:\" .claude/rules/*.md: no legacy globs frontmatter remains.",
+    "Run rg -n \"^paths:\" .claude/rules/*.md | wc -l: 32 paths-scoped rule files found."
   ],
   "residual_risks": []
 }

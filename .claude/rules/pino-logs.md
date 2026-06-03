@@ -1,7 +1,7 @@
 ---
 name: pino-logs
 description: Pino structured logging and redaction standards.
-globs:
+paths:
   - "apps/api/src/**/*.{ts,tsx}"
   - "packages/server/src/**/*.{ts,tsx}"
   - "packages/ingestion/src/**/*.{ts,tsx}"

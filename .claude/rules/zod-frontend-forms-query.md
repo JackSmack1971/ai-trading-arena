@@ -1,7 +1,7 @@
 ---
 name: zod-frontend-forms-query
 description: Zod frontend form, query, and client-state validation standards.
-globs:
+paths:
   - "src/components/**/*.{ts,tsx}"
   - "src/features/**/*.{ts,tsx}"
   - "src/app/**/*.{ts,tsx}"

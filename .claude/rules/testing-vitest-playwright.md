@@ -1,7 +1,7 @@
 ---
 name: testing-vitest-playwright
 description: Vitest and Playwright testing standards across backend and frontend surfaces.
-globs:
+paths:
   - "apps/**/*.{ts,tsx}"
   - "packages/**/*.{ts,tsx}"
   - "tests/**/*.{ts,tsx}"

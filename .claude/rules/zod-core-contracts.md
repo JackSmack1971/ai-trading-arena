@@ -1,7 +1,7 @@
 ---
 name: zod-core-contracts
 description: Core Zod schema and shared validation contract standards.
-globs:
+paths:
   - "src/**/*.{ts,tsx}"
   - "app/**/*.{ts,tsx}"
   - "pages/**/*.{ts,tsx}"

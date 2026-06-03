@@ -1,7 +1,7 @@
 ---
 name: context7-usage
 description: Current-library-documentation workflow rules for framework, SDK, API, CLI, and cloud-service work.
-globs:
+paths:
   - "CLAUDE.md"
   - "AGENTS.md"
   - ".claude/**/*.md"

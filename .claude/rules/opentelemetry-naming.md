@@ -1,7 +1,7 @@
 ---
 name: opentelemetry-naming
 description: OpenTelemetry trace, span, and metric naming standards.
-globs:
+paths:
   - "apps/api/src/**/*.{ts,tsx}"
   - "apps/web/src/**/*.{ts,tsx}"
   - "packages/**/src/**/*.ts"

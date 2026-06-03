@@ -1,7 +1,7 @@
 ---
 name: zod-files-realtime-tests
 description: Zod schema standards for files, realtime payloads, and tests.
-globs:
+paths:
   - "**/*.test.{ts,tsx}"
   - "**/*.spec.{ts,tsx}"
   - "tests/**/*.{ts,tsx}"

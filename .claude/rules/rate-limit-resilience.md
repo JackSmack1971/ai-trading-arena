@@ -1,7 +1,7 @@
 ---
 name: rate-limit-resilience
 description: Rate-limit handling, retry, and backoff resilience standards.
-globs:
+paths:
   - "apps/api/**/*.ts"
   - "packages/**/*.ts"
   - "src/**/*.ts"

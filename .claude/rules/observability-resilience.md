@@ -1,7 +1,7 @@
 ---
 name: observability-resilience
 description: Observability, resilience, and failure-handling standards for production services.
-globs:
+paths:
   - "apps/api/**/*.{ts,tsx}"
   - "packages/telemetry/**/*.ts"
   - "packages/feeds/**/*.ts"

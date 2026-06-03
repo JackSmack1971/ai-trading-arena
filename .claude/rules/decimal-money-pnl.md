@@ -1,7 +1,7 @@
 ---
 name: decimal-money-pnl
 description: Decimal.js money, pricing, and P&L calculation standards.
-globs:
+paths:
   - "src/**/*.{ts,tsx,js,jsx}"
   - "lib/**/*.{ts,tsx,js,jsx}"
   - "app/**/*.{ts,tsx,js,jsx}"
