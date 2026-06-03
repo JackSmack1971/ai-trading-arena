@@ -4,12 +4,7 @@
   "compilerOptions": {
     "module": "NodeNext",
     "moduleResolution": "NodeNext",
-    "outDir": "dist",
-    "rootDir": "src",
-    "composite": true,
-    "paths": {
-      "@arena/core": ["../core/dist/index.d.ts"]
-    }
+    "outDir": "dist"
   },
   "include": ["src"]
 }

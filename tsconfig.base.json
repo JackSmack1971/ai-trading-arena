@@ -1,6 +1,16 @@
 {
   "$schema": "https://json.schemastore.org/tsconfig",
   "compilerOptions": {
+    "paths": {
+      "@arena/agents": ["./packages/agents/src/index.ts"],
+      "@arena/broker-paper": ["./packages/broker-paper/src/index.ts"],
+      "@arena/core": ["./packages/core/src/index.ts"],
+      "@arena/db": ["./packages/db/src/index.ts"],
+      "@arena/feeds": ["./packages/feeds/src/index.ts"],
+      "@arena/strategies": ["./packages/strategies/src/index.ts"],
+      "@arena/telemetry": ["./packages/telemetry/src/index.ts"],
+      "@arena/ui": ["./packages/ui/src/index.ts"]
+    },
     "strict": true,
     "target": "ES2022",
     "lib": ["ES2022"],
