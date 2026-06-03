@@ -27,7 +27,7 @@ export function buildReplayReport(dbFileName: string, runId: string): ReplayRepo
   const summary = projectRunSummary(rows);
   const counts = Object.fromEntries(projectEventTypeCounts(rows).map((item) => [item.type, item.count]));
 
-  return {
+  const report: ReplayReport = {
     runId,
     eventCount: rows.length,
     hashChainValid: verifyHashChain(db, runId),
@@ -35,6 +35,10 @@ export function buildReplayReport(dbFileName: string, runId: string): ReplayRepo
     lastSeq: summary?.lastSeq ?? null,
     eventTypeCounts: counts,
   };
+
+  db.$client.close();
+
+  return report;
 }
 
 function main(): void {
