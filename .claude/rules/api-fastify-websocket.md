@@ -1,7 +1,7 @@
 ---
 name: api-fastify-websocket
 description: Fastify and WebSocket API implementation standards for backend transport surfaces.
-globs:
+paths:
   - "apps/api/src/**/*.{ts,tsx}"
   - "apps/server/src/**/*.{ts,tsx}"
   - "packages/api/src/**/*.{ts,tsx}"

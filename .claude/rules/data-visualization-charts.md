@@ -1,7 +1,7 @@
 ---
 name: data-visualization-charts
 description: Lightweight Charts and Recharts visualization standards for trading and analytics views.
-globs:
+paths:
   - "apps/web/src/**/*.{ts,tsx}"
   - "packages/ui/src/**/*.{ts,tsx}"
   - "packages/shared/src/**/*.{ts,tsx}"

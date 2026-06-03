@@ -1,7 +1,7 @@
 ---
 name: rate-limits-bottleneck-pretry
 description: Bottleneck and p-retry integration standards for rate-limited provider clients.
-globs:
+paths:
   - "src/**/*.{ts,tsx,js,mjs,cjs}"
   - "lib/**/*.{ts,tsx,js,mjs,cjs}"
   - "packages/**/*.{ts,tsx,js,mjs,cjs}"

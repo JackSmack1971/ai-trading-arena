@@ -1,7 +1,7 @@
 ---
 name: rate-limit-tests
 description: Rate-limit behavior, retry, and backoff testing standards.
-globs:
+paths:
   - "**/*.test.{ts,tsx,js,mjs,cjs}"
   - "**/*.spec.{ts,tsx,js,mjs,cjs}"
   - "test/**/*.{ts,tsx,js,mjs,cjs}"

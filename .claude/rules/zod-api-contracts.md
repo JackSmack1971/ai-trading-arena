@@ -1,7 +1,7 @@
 ---
 name: zod-api-contracts
 description: Zod request, response, and API boundary contract standards.
-globs:
+paths:
   - "src/server/**/*.{ts,tsx}"
   - "src/api/**/*.{ts,tsx}"
   - "src/routes/**/*.{ts,tsx}"

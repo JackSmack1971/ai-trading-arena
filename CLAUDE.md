@@ -2,11 +2,11 @@
 
 This repository is a Claude Code framework for a local-first AI paper-trading simulator. It is not a live-trading system.
 
-## Read order
+## Read order (for human developers)
 
 On Windows, when using the Bash tool, use POSIX-compatible commands such as find, ls, grep, sed, and cat. Do not use CMD-only syntax like dir /s /b unless explicitly invoking cmd.exe or powershell.exe.
 
-1. `AGENTS.md`
+1. `AGENTS.md` — reference only; Claude Code does not auto-load it unless a session explicitly imports or reads it.
 2. `docs/AI_TRADING_ARENA_BLUEPRINT.md`
 3. `docs/PRACTICAL_LIBRARY_MAP.md`
 4. `docs/FRAMEWORK_TRACEABILITY.md`
@@ -80,10 +80,12 @@ A local-first, event-sourced AI paper-trading simulator where LLM agents (via Op
 
 ## Technical Context
 
-For detailed project guidelines, conventions, and architecture maps, refer to:
-- **Stack & Tooling**: [.planning/codebase/STACK.md](file:///f:/ai-trading-arena/.planning/codebase/STACK.md)
-- **Conventions & Naming**: [.planning/codebase/CONVENTIONS.md](file:///f:/ai-trading-arena/.planning/codebase/CONVENTIONS.md)
-- **System Architecture**: [.planning/codebase/ARCHITECTURE.md](file:///f:/ai-trading-arena/.planning/codebase/ARCHITECTURE.md)
+For detailed project guidelines, conventions, and architecture maps, refer to committed repository documents:
+- **Stack & Tooling**: `docs/PRACTICAL_LIBRARY_MAP.md`
+- **Conventions & Naming**: `docs/DESIGN.md`
+- **System Architecture**: `docs/AI_TRADING_ARENA_BLUEPRINT.md` and `docs/FRAMEWORK_TRACEABILITY.md`
+
+Local `.planning/` files are developer notes only; they are not required in CI or remote Claude Code sessions.
 
 
 <!-- GSD:skills-start source:skills/ -->

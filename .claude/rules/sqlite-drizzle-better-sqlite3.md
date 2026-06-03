@@ -1,7 +1,7 @@
 ---
 name: sqlite-drizzle-better-sqlite3
 description: SQLite, Drizzle, and better-sqlite3 persistence standards.
-globs:
+paths:
   - "src/db/**/*.{ts,tsx}"
   - "src/database/**/*.{ts,tsx}"
   - "src/**/*.repository.ts"

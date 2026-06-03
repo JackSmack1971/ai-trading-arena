@@ -1,7 +1,7 @@
 ---
 name: fastify-testing-standards
 description: Fastify route, plugin, and transport testing standards.
-globs:
+paths:
   - "**/*.test.{ts,js}"
   - "**/*.spec.{ts,js}"
   - "test/**/*.{ts,js}"

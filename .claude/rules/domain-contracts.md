@@ -1,7 +1,7 @@
 ---
 name: domain-contracts
 description: Shared domain contract standards across backend, storage, and UI boundaries.
-globs:
+paths:
   - "packages/shared/**/*.ts"
   - "packages/db/**/*.ts"
   - "packages/domain/**/*.ts"

@@ -1,7 +1,7 @@
 ---
 name: risk-gate-parameters
 description: Deterministic risk-gate parameter and rejection standards for simulator order and exposure control.
-globs:
+paths:
   - "apps/api/**/*.{ts,tsx,js,jsx}"
   - "apps/worker/**/*.{ts,tsx,js,jsx}"
   - "packages/core/**/*.{ts,tsx,js,jsx}"

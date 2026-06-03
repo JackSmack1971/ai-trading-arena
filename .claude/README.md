@@ -17,3 +17,7 @@ This `.claude/` directory is the project-local operating layer for the AI Tradin
 - `../docs/FRAMEWORK_TRACEABILITY.md` maps blueprint requirements to concrete framework artifacts for audits.
 
 Hard constraint: do not use this framework to add real order routing or secret-exposing debug flows.
+
+## Local skill shell execution
+
+`.claude/settings.local.json.example` keeps `disableSkillShellExecution` set to `true` to preserve the shared safe default from `.claude/settings.json`. Developers who need shell execution from skills must opt in explicitly in their private `.claude/settings.local.json` after reviewing the risk and keeping secrets out of tool output.

@@ -1,7 +1,7 @@
 ---
 name: public-feed-ingestion
 description: Public market-data ingestion standards for adapters, schemas, and relay paths.
-globs:
+paths:
   - "apps/api/src/feeds/**/*.{ts,tsx}"
   - "apps/api/src/realtime/**/*.{ts,tsx}"
   - "apps/api/src/routes/**/*.{ts,tsx}"

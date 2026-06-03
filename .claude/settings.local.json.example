@@ -3,7 +3,7 @@
   "version": 1,
   "description": "Local developer settings template for the AI Trading Arena workspace (git-ignored). Copy to settings.local.json to use.",
   "model": "sonnet",
-  "disableSkillShellExecution": false,
+  "disableSkillShellExecution": true,
   "permissions": {
     "defaultMode": "acceptEdits",
     "allow": [],

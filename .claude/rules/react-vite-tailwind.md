@@ -1,7 +1,7 @@
 ---
 name: react-vite-tailwind
 description: React, Vite, and Tailwind UI implementation standards.
-globs:
+paths:
   - "apps/web/**/*.{ts,tsx}"
   - "packages/ui/**/*.{ts,tsx}"
   - "packages/shared/**/*.{ts,tsx}"

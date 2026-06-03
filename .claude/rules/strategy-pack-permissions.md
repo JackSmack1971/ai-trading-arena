@@ -1,7 +1,7 @@
 ---
 name: strategy-pack-permissions
 description: Strategy manifest, permission, and signal-only runtime standards for simulator strategy packs.
-globs:
+paths:
   - "strategies/**/*.{ts,tsx,js,jsx,yaml,yml,json}"
   - "packages/strategies/**/*.{ts,tsx,js,jsx}"
   - "apps/worker/**/*.{ts,tsx,js,jsx}"

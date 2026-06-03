@@ -1,7 +1,7 @@
 ---
 name: websocket-realtime-standards
 description: Realtime WebSocket session, transport, and event-shape standards.
-globs:
+paths:
   - "src/**/*.{ts,js}"
   - "routes/**/*.{ts,js}"
   - "plugins/**/*.{ts,js}"

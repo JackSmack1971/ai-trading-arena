@@ -1,7 +1,7 @@
 ---
 name: openrouter-sdk
 description: OpenRouter SDK integration standards for model access and provider routing.
-globs:
+paths:
   - "apps/api/**/*.{ts,tsx}"
   - "packages/ai/**/*.ts"
   - "packages/openrouter/**/*.ts"

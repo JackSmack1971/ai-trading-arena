@@ -1,7 +1,7 @@
 ---
 name: fastify-realtime-api
 description: Fastify HTTP and WebSocket API standards for realtime server surfaces.
-globs:
+paths:
   - "apps/api/**/*.{ts,tsx}"
   - "packages/api/**/*.ts"
   - "packages/realtime/**/*.ts"

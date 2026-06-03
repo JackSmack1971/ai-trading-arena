@@ -1,7 +1,7 @@
 ---
 name: public-feeds-ws-undici
 description: Transport and review standards for public feed adapters using WebSocket, HTTP polling, SSE, or undici.
-globs:
+paths:
   - "apps/api/src/feeds/**/*.{ts,tsx}"
   - "apps/api/src/realtime/**/*.{ts,tsx}"
   - "apps/api/src/routes/**/*.{ts,tsx}"

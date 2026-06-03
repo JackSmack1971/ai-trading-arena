@@ -1,7 +1,7 @@
 ---
 name: zod-data-env-monorepo
 description: Zod data, environment, and monorepo contract standards.
-globs:
+paths:
   - "src/db/**/*.{ts,tsx}"
   - "src/env/**/*.{ts,tsx}"
   - "src/config/**/*.{ts,tsx}"

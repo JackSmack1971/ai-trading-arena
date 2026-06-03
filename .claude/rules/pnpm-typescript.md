@@ -1,7 +1,7 @@
 ---
 name: pnpm-typescript
 description: pnpm workspace and TypeScript monorepo standards.
-globs:
+paths:
   - "package.json"
   - "pnpm-workspace.yaml"
   - "pnpm-lock.yaml"
