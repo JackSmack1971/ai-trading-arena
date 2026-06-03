@@ -48,8 +48,8 @@ export async function runWorker(opts?: WorkerOptions): Promise<WorkerHandle> {
     // better-sqlite3 writes are synchronous and durable on return, so every
     // appendEventPayload call is already flushed before onError fires — no
     // extra flush step is needed.
-    (adapter as unknown as { onError?: (handler: (err: Error) => void) => void }).onError?.((err) => {
-      logger.error({ err, adapterId: adapter.id }, 'feed adapter terminal error');
+    adapter.onError((err) => {
+      logger.fatal({ err, adapterId: adapter.id }, 'feed adapter terminal error — stopping all adapters');
       if (stopFn) {
         void stopFn().catch(() => {
           // ignore errors during emergency shutdown
