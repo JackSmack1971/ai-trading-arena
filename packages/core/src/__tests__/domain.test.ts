@@ -242,6 +242,7 @@ describe('SimEventTypeSchema', () => {
     expect(types).toHaveLength(21);
     expect(types).toContain('MARKET_TICK_RECEIVED');
     expect(types).toContain('PAPER_ORDER_FILLED');
+    expect(types).toContain('STRATEGY_SWITCH_REQUESTED');
     expect(types).toContain('AGENT_DECISION_INVALID');
     expect(types).toContain('STRATEGY_SWITCH_REQUESTED');
   });

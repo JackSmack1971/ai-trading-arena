@@ -1,4 +1,4 @@
-import { appendEventPayload, createDb, replayRun, verifyHashChain, type ArenaDb } from '@arena/db';
+import { appendEventPayload, countOrdersInWindow, countStrategySwitchesInWindow, createDb, replayRun, verifyHashChain, type ArenaDb } from '@arena/db';
 import { createDemoPaperAgents, type PaperAgent } from '@arena/agents';
 import { PaperBroker, type BrokerEventPayload, type MarketTick } from '@arena/broker-paper';
 import {
@@ -88,7 +88,7 @@ export function runDeterministicDemo(options: DemoRunOptions = {}): DemoRunResul
 
     for (const agent of agents) {
       const broker = mustGetBroker(brokers, agent.agentId);
-      const observation = buildObservation({ agent, broker, tickEvent, runId, tickIndex, recentSignals });
+      const observation = buildObservation({ db, agent, broker, tickEvent, runId, tickIndex, recentSignals });
       appendEventPayload(db, {
         runId,
         type: 'AGENT_DECISION_REQUESTED',
@@ -239,6 +239,7 @@ function brokerEventTimestamp(event: BrokerEventPayload): string {
 }
 
 function buildObservation(args: {
+  db: ArenaDb;
   agent: PaperAgent;
   broker: PaperBroker;
   tickEvent: NormalizedMarketEvent;
@@ -246,10 +247,10 @@ function buildObservation(args: {
   tickIndex: number;
   recentSignals: StrategySignal[];
 }): AgentObservation {
-  const { agent, broker, tickEvent, runId, tickIndex, recentSignals } = args;
+  const { db, agent, broker, tickEvent, runId, tickIndex, recentSignals } = args;
   const timestamp = tickEvent.exchangeTimestamp;
   const portfolio = broker.getPortfolioSummary(timestamp);
-  const riskState = buildRiskState(runId, agent.agentId, portfolio, timestamp);
+  const riskState = buildRiskState(db, runId, agent.agentId, portfolio, timestamp);
   const allowedStrategies: StrategyDescriptor[] = [{ id: 'demo-momentum', name: 'Demo Momentum', version: '0.1.0' }];
 
   return AgentObservationSchema.parse({
@@ -278,7 +279,7 @@ function buildObservation(args: {
   });
 }
 
-function buildRiskState(runId: string, agentId: string, portfolio: PortfolioSummary, timestamp: string): RiskState {
+function buildRiskState(db: ArenaDb, runId: string, agentId: string, portfolio: PortfolioSummary, timestamp: string): RiskState {
   return {
     runId,
     agentId,
@@ -286,8 +287,8 @@ function buildRiskState(runId: string, agentId: string, portfolio: PortfolioSumm
     maxDrawdownPct: '5',
     positionValueUsd: portfolio.totalPositionValue,
     totalExposurePct: portfolio.exposurePct,
-    ordersThisMinute: 0,
-    strategySwitchesThisHour: 0,
+    ordersThisMinute: countOrdersInWindow(db, runId, agentId, 60_000),
+    strategySwitchesThisHour: countStrategySwitchesInWindow(db, runId, agentId, 3_600_000),
     lastEvaluatedAt: timestamp,
   };
 }
