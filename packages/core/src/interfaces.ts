@@ -17,6 +17,7 @@ export interface MarketFeedAdapter {
   subscribe(symbols: string[]): Promise<void>;
   unsubscribe(symbols: string[]): Promise<void>;
   onEvent(handler: (event: NormalizedMarketEvent) => void): void;
+  onError(handler: (err: Error) => void): void;
 }
 
 // Minimal context available to a strategy during signal generation.
