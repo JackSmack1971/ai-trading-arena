@@ -5,7 +5,7 @@ import { migrate } from 'drizzle-orm/better-sqlite3/migrator';
 import { eq } from 'drizzle-orm';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { createMemoryDb, type ArenaDb } from '../client.js';
-import { appendEvent, appendEvents, countEvents, getEvent, replayRun, appendEventPayload, verifyHashChain } from '../repositories/events.js';
+import { appendEvent, appendEvents, countEvents, getEvent, replayRun, appendEventPayload, verifyHashChain, countOrdersInWindow, countStrategySwitchesInWindow } from '../repositories/events.js';
 import { projectEventTypeCounts, projectRunSummary } from '../projections/index.js';
 import { events, type InsertEvent } from '../schema.js';
 
@@ -258,5 +258,93 @@ describe('appendEventPayload + verifyHashChain', () => {
       .run();
 
     expect(verifyHashChain(db, runId)).toBe(false);
+  });
+});
+
+describe('countOrdersInWindow', () => {
+  it('returns 0 for empty DB', () => {
+    expect(countOrdersInWindow(db, 'run-1', 'agent-1', 60_000)).toBe(0);
+  });
+
+  it('counts PAPER_ORDER_CREATED events within the window', () => {
+    const runId = 'run-orders';
+    const agentId = 'agent-x';
+    const now = Date.now();
+    // Insert 2 events within the last 60s
+    for (let i = 0; i < 2; i++) {
+      appendEventPayload(db, {
+        runId,
+        type: 'PAPER_ORDER_CREATED',
+        source: agentId,
+        payload: { orderId: `o-${i}` },
+        timestamp: new Date(now - 30_000 + i * 1000).toISOString(),
+      });
+    }
+    expect(countOrdersInWindow(db, runId, agentId, 60_000)).toBe(2);
+  });
+
+  it('excludes events outside the window', () => {
+    const runId = 'run-orders-old';
+    const agentId = 'agent-y';
+    const old = new Date(Date.now() - 120_000).toISOString(); // 2 minutes ago
+    appendEventPayload(db, {
+      runId,
+      type: 'PAPER_ORDER_CREATED',
+      source: agentId,
+      payload: { orderId: 'old-order' },
+      timestamp: old,
+    });
+    // 60s window — old event should not count
+    expect(countOrdersInWindow(db, runId, agentId, 60_000)).toBe(0);
+  });
+
+  it('does not count other event types', () => {
+    const runId = 'run-orders-mixed';
+    const agentId = 'agent-z';
+    const recent = new Date(Date.now() - 10_000).toISOString();
+    appendEventPayload(db, {
+      runId,
+      type: 'MARKET_TICK_RECEIVED',
+      source: agentId,
+      payload: { symbol: 'BTC-USD' },
+      timestamp: recent,
+    });
+    expect(countOrdersInWindow(db, runId, agentId, 60_000)).toBe(0);
+  });
+});
+
+describe('countStrategySwitchesInWindow', () => {
+  it('returns 0 for empty DB', () => {
+    expect(countStrategySwitchesInWindow(db, 'run-1', 'agent-1', 3_600_000)).toBe(0);
+  });
+
+  it('counts STRATEGY_SWITCH_REQUESTED events within the window', () => {
+    const runId = 'run-switches';
+    const agentId = 'agent-sw';
+    const now = Date.now();
+    for (let i = 0; i < 3; i++) {
+      appendEventPayload(db, {
+        runId,
+        type: 'STRATEGY_SWITCH_REQUESTED',
+        source: agentId,
+        payload: { fromStrategyId: 'a', toStrategyId: 'b', runId, agentId, timestamp: new Date(now - i * 60_000).toISOString() },
+        timestamp: new Date(now - i * 60_000).toISOString(),
+      });
+    }
+    expect(countStrategySwitchesInWindow(db, runId, agentId, 3_600_000)).toBe(3);
+  });
+
+  it('excludes events outside the hour window', () => {
+    const runId = 'run-switches-old';
+    const agentId = 'agent-sw-old';
+    const old = new Date(Date.now() - 7_200_000).toISOString(); // 2 hours ago
+    appendEventPayload(db, {
+      runId,
+      type: 'STRATEGY_SWITCH_REQUESTED',
+      source: agentId,
+      payload: { fromStrategyId: 'a', toStrategyId: 'b', runId, agentId, timestamp: old },
+      timestamp: old,
+    });
+    expect(countStrategySwitchesInWindow(db, runId, agentId, 3_600_000)).toBe(0);
   });
 });
