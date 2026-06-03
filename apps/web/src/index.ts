@@ -107,18 +107,19 @@ style.textContent = `
 document.head.append(style);
 
 document.querySelector<HTMLButtonElement>('#run-demo')?.addEventListener('click', async () => {
-  await fetch(`${apiBase}/api/demo/run?runId=${encodeURIComponent(runId)}`, { method: 'POST' });
+  await fetch(`${apiBase}/v1/demo/run?runId=${encodeURIComponent(runId)}`, { method: 'POST' });
   await refreshTelemetry();
 });
 
 async function refreshTelemetry(): Promise<void> {
-  const response = await fetch(`${apiBase}/api/runs/${encodeURIComponent(runId)}/telemetry`);
-  renderTelemetry(await response.json() as ArenaTelemetry);
+  const response = await fetch(`${apiBase}/v1/runs/${encodeURIComponent(runId)}/telemetry`);
+  const envelope = await response.json() as { ok: boolean; data?: ArenaTelemetry };
+  if (envelope.ok && envelope.data) renderTelemetry(envelope.data);
 }
 
 function connectTelemetrySocket(): void {
   const wsBase = apiBase.replace(/^http/, 'ws');
-  const socket = new WebSocket(`${wsBase}/ws/runs/${encodeURIComponent(runId)}/telemetry`);
+  const socket = new WebSocket(`${wsBase}/v1/telemetry/stream?runId=${encodeURIComponent(runId)}`);
   const state = document.querySelector<HTMLElement>('#socket-state');
   socket.addEventListener('open', () => { if (state) state.textContent = 'live'; });
   socket.addEventListener('close', () => {

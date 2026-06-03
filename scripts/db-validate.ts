@@ -2,12 +2,18 @@
 // Validates all stored events in arena.db against per-type Zod schemas.
 // Usage: pnpm db:validate [runId]
 // Exit 0: all rows pass. Exit 1: one or more rows fail.
+import { existsSync } from 'node:fs';
 import { createDb, replayRun } from '@arena/db';
 import { SimEventPayloadSchemas, SimEventTypeSchema } from '@arena/core';
 import type { SimEventType } from '@arena/core';
 
 const dbPath = process.env['DB_FILE_NAME'] ?? 'arena.db';
 const runId = process.argv[2] ?? 'demo-local-paper-arena';
+
+if (dbPath !== ':memory:' && !existsSync(dbPath)) {
+  process.stdout.write(`No database file found at ${dbPath}; nothing to validate for run "${runId}"\n`);
+  process.exit(0);
+}
 
 const db = createDb(dbPath, { readonly: true });
 const rows = replayRun(db, runId);
