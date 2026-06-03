@@ -4,18 +4,21 @@ import { fileURLToPath, URL } from 'node:url';
 import { pino } from 'pino';
 import { WebSocketServer, type WebSocket } from 'ws';
 import { migrate } from 'drizzle-orm/better-sqlite3/migrator';
-import { createDb, appendEventPayload, replayRun, verifyHashChain, type ArenaDb, type EventRow } from '@arena/db';
+import { createDb, appendEventPayload, replayRun, verifyHashChain, countOrdersInWindow, countStrategySwitchesInWindow, type ArenaDb, type EventRow } from '@arena/db';
 import { createDemoPaperAgents, type PaperAgent } from '@arena/agents';
 import { PaperBroker, type BrokerEventPayload, type MarketTick } from '@arena/broker-paper';
 import {
   AgentDecisionSchema,
   AgentObservationSchema,
   NormalizedMarketEventSchema,
+  SimEventPayloadSchemas,
+  MarketTickPayloadSchema,
   type AgentDecision,
   type AgentObservation,
   type NormalizedMarketEvent,
   type PortfolioSummary,
   type RiskState,
+  type SimEventType,
   type StrategyDescriptor,
   type StrategySignal,
 } from '@arena/core';
@@ -192,35 +195,39 @@ function seedDemoIfEmpty(db: ArenaDb, runId: string): void {
 }
 
 function toEnvelope(row: EventRow): EventEnvelope {
+  const raw: unknown = JSON.parse(row.payloadJson);
+  const schema = SimEventPayloadSchemas[row.type as SimEventType];
+  const payload = schema != null ? schema.parse(raw) : raw;
   return {
     seq: row.seq,
     type: row.type,
     source: row.source,
     timestamp: row.timestamp,
-    payload: JSON.parse(row.payloadJson) as unknown,
+    payload,
   };
 }
 
 function toMarketPoint(row: EventRow): ChartPoint {
-  const payload = JSON.parse(row.payloadJson) as { symbol?: string; last?: string; close?: string };
+  const raw: unknown = JSON.parse(row.payloadJson);
+  const payload = MarketTickPayloadSchema.parse(raw);
   return {
     timestamp: row.timestamp,
-    symbol: payload.symbol ?? 'UNKNOWN',
+    symbol: payload.symbol,
     price: payload.last ?? payload.close ?? '0',
   };
 }
 
 function toEquityPoint(row: EventRow): EquityPoint {
-  const payload = JSON.parse(row.payloadJson) as {
-    snapshot?: { agentId?: string; equity?: string; cashBalance?: string; exposurePct?: string };
-  };
-  const snapshot = payload.snapshot ?? {};
+  const raw: unknown = JSON.parse(row.payloadJson);
+  const schema = SimEventPayloadSchemas[row.type as SimEventType];
+  const payload = schema != null ? (schema.parse(raw) as Record<string, unknown>) : (raw as Record<string, unknown>);
+  const snapshot = (payload['snapshot'] as Record<string, string> | undefined) ?? {};
   return {
     timestamp: row.timestamp,
-    agentId: snapshot.agentId ?? row.source,
-    equity: snapshot.equity ?? '0',
-    cashBalance: snapshot.cashBalance ?? '0',
-    exposurePct: snapshot.exposurePct ?? '0',
+    agentId: snapshot['agentId'] ?? row.source,
+    equity: snapshot['equity'] ?? '0',
+    cashBalance: snapshot['cashBalance'] ?? '0',
+    exposurePct: snapshot['exposurePct'] ?? '0',
   };
 }
 
@@ -228,7 +235,9 @@ function projectAgents(rows: EventRow[]): AgentTelemetry[] {
   const agents = new Map<string, AgentTelemetry>();
 
   for (const row of rows) {
-    const payload = JSON.parse(row.payloadJson) as Record<string, unknown>;
+    const raw: unknown = JSON.parse(row.payloadJson);
+    const schema = SimEventPayloadSchemas[row.type as SimEventType];
+    const payload = (schema != null ? schema.parse(raw) : raw) as Record<string, unknown>;
     if (row.type === 'PNL_SNAPSHOT_CREATED') {
       const snapshot = payload['snapshot'] as Record<string, string> | undefined;
       if (!snapshot?.['agentId']) continue;
@@ -344,7 +353,7 @@ function runDeterministicDemo(options: { db: ArenaDb; runId: string; agents?: Pa
 
     for (const agent of agents) {
       const broker = mustGetBroker(brokers, agent.agentId);
-      const observation = buildObservation({ agent, broker, tickEvent, runId, tickIndex, recentSignals });
+      const observation = buildObservation({ agent, broker, tickEvent, runId, tickIndex, recentSignals, db });
       appendEventPayload(db, {
         runId,
         type: 'AGENT_DECISION_REQUESTED',
@@ -491,11 +500,12 @@ function buildObservation(args: {
   runId: string;
   tickIndex: number;
   recentSignals: StrategySignal[];
+  db: ArenaDb;
 }): AgentObservation {
-  const { agent, broker, tickEvent, runId, tickIndex, recentSignals } = args;
+  const { agent, broker, tickEvent, runId, tickIndex, recentSignals, db } = args;
   const timestamp = tickEvent.exchangeTimestamp;
   const portfolio = broker.getPortfolioSummary(timestamp);
-  const riskState = buildRiskState(runId, agent.agentId, portfolio, timestamp);
+  const riskState = buildRiskState(db, runId, agent.agentId, portfolio, timestamp);
   const allowedStrategies: StrategyDescriptor[] = [{ id: 'demo-momentum', name: 'Demo Momentum', version: '0.1.0' }];
 
   return AgentObservationSchema.parse({
@@ -524,7 +534,7 @@ function buildObservation(args: {
   });
 }
 
-function buildRiskState(runId: string, agentId: string, portfolio: PortfolioSummary, timestamp: string): RiskState {
+function buildRiskState(db: ArenaDb, runId: string, agentId: string, portfolio: PortfolioSummary, timestamp: string): RiskState {
   return {
     runId,
     agentId,
@@ -532,8 +542,8 @@ function buildRiskState(runId: string, agentId: string, portfolio: PortfolioSumm
     maxDrawdownPct: '5',
     positionValueUsd: portfolio.totalPositionValue,
     totalExposurePct: portfolio.exposurePct,
-    ordersThisMinute: 0,
-    strategySwitchesThisHour: 0,
+    ordersThisMinute: countOrdersInWindow(db, runId, agentId, 60_000),
+    strategySwitchesThisHour: countStrategySwitchesInWindow(db, runId, agentId, 3_600_000),
     lastEvaluatedAt: timestamp,
   };
 }
