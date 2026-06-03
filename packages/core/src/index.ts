@@ -121,6 +121,11 @@ export {
   PnLSnapshotSchema,
   TradeSummarySchema,
   PortfolioSummarySchema,
+  PositionSnapshotSchema,
+  PnLSummarySchema,
+  OrderRecordSchema,
+  OrderHistoryPageSchema,
+  AgentTelemetrySnapshotSchema,
 } from './schemas/broker.js';
 export type {
   OrderType,
@@ -133,6 +138,11 @@ export type {
   PnLSnapshot,
   TradeSummary,
   PortfolioSummary,
+  PositionSnapshot,
+  PnLSummary,
+  OrderRecord,
+  OrderHistoryPage,
+  AgentTelemetrySnapshot,
 } from './schemas/broker.js';
 
 // Risk

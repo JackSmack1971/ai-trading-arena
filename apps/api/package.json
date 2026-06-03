@@ -16,6 +16,7 @@
     "@arena/broker-paper": "workspace:^",
     "@arena/core": "workspace:^",
     "@arena/db": "workspace:^",
+    "@arena/telemetry": "workspace:^",
     "@fastify/cors": "^11",
     "@fastify/websocket": "^11",
     "drizzle-orm": "^0.40.0",

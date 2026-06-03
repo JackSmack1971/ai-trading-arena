@@ -7,6 +7,7 @@ import {
   OrderIdSchema,
   RunIdSchema,
   SymbolSchema,
+  StrategyIdSchema,
   TimestampSchema,
 } from './common.js';
 
@@ -129,3 +130,65 @@ export const PortfolioSummarySchema = z.object({
   snapshotAt: TimestampSchema,
 });
 export type PortfolioSummary = z.infer<typeof PortfolioSummarySchema>;
+
+
+export const PositionSnapshotSchema = z.object({
+  agentId: AgentIdSchema,
+  symbol: SymbolSchema,
+  side: PositionSideSchema,
+  quantity: NonNegativeDecimalStringSchema,
+  averageEntryPrice: NonNegativeDecimalStringSchema,
+  currentPrice: NonNegativeDecimalStringSchema,
+  unrealizedPnl: DecimalStringSchema,
+  realizedPnl: DecimalStringSchema.default('0.00000000'),
+  updatedAt: TimestampSchema,
+});
+export type PositionSnapshot = z.infer<typeof PositionSnapshotSchema>;
+
+export const PnLSummarySchema = z.object({
+  runId: RunIdSchema,
+  realizedPnl: DecimalStringSchema,
+  unrealizedPnl: DecimalStringSchema,
+  totalFees: NonNegativeDecimalStringSchema,
+  netPnl: DecimalStringSchema,
+  returnPct: DecimalStringSchema,
+});
+export type PnLSummary = z.infer<typeof PnLSummarySchema>;
+
+export const OrderRecordSchema = z.object({
+  orderId: OrderIdSchema,
+  agentId: AgentIdSchema,
+  symbol: SymbolSchema,
+  side: OrderSideSchema,
+  type: OrderTypeSchema,
+  quantity: NonNegativeDecimalStringSchema,
+  limitPrice: NonNegativeDecimalStringSchema.optional(),
+  status: OrderStatusSchema,
+  fillPrice: NonNegativeDecimalStringSchema.optional(),
+  fillQuantity: NonNegativeDecimalStringSchema.optional(),
+  fee: NonNegativeDecimalStringSchema.optional(),
+  placedAt: TimestampSchema,
+  filledAt: TimestampSchema.optional(),
+  cancelledAt: TimestampSchema.optional(),
+});
+export type OrderRecord = z.infer<typeof OrderRecordSchema>;
+
+export const OrderHistoryPageSchema = z.object({
+  orders: z.array(OrderRecordSchema),
+  total: z.number().int().nonnegative(),
+  offset: z.number().int().nonnegative(),
+  limit: z.number().int().positive(),
+});
+export type OrderHistoryPage = z.infer<typeof OrderHistoryPageSchema>;
+
+export const AgentTelemetrySnapshotSchema = z.object({
+  runId: RunIdSchema,
+  decisionsTotal: z.number().int().nonnegative(),
+  decisionsSucceeded: z.number().int().nonnegative(),
+  decisionsFailed: z.number().int().nonnegative(),
+  noopCount: z.number().int().nonnegative(),
+  lastDecisionAt: TimestampSchema.optional(),
+  currentStrategy: StrategyIdSchema.optional(),
+  strategyHistory: z.array(z.object({ strategyId: StrategyIdSchema, requestedAt: TimestampSchema, agentId: AgentIdSchema.optional() })),
+});
+export type AgentTelemetrySnapshot = z.infer<typeof AgentTelemetrySnapshotSchema>;

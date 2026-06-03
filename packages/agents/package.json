@@ -13,6 +13,8 @@
     "test": "vitest run --passWithNoTests"
   },
   "dependencies": {
-    "@arena/core": "workspace:*"
+    "@arena/core": "workspace:*",
+    "openai": "^6.41.0",
+    "p-retry": "^8.0.0"
   }
 }
