@@ -94,6 +94,11 @@
     ]
   },
   "claudeMdExcludes": [
-    ".claude/worktrees/**"
+    ".claude/worktrees/**",
+    "**/node_modules/**",
+    "**/dist/**",
+    "**/coverage/**",
+    "**/.next/**",
+    "**/.git/**"
   ]
 }

@@ -1,0 +1,41 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "AgentHandoff",
+  "description": "Standardized schema for structured state handoffs between Claude Code subagents.",
+  "type": "object",
+  "properties": {
+    "taskId": {
+      "type": "string",
+      "description": "Unique identifier of the task being executed."
+    },
+    "status": {
+      "type": "string",
+      "enum": ["success", "failure", "in_progress", "escalated"],
+      "description": "Current status of the task execution."
+    },
+    "modifiedPaths": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      },
+      "description": "List of files created or modified during the task."
+    },
+    "testStatus": {
+      "type": "string",
+      "enum": ["passed", "failed", "unrun", "no_tests"],
+      "description": "Status of the test verification suite."
+    },
+    "nextSteps": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      },
+      "description": "Pending actions or next tasks for the receiving agent."
+    },
+    "metadata": {
+      "type": "object",
+      "description": "Additional context-specific properties passed to the next agent."
+    }
+  },
+  "required": ["taskId", "status", "modifiedPaths", "testStatus", "nextSteps"]
+}
