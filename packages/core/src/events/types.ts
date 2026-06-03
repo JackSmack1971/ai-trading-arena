@@ -1,5 +1,5 @@
 import { z } from 'zod';
-import { EventIdSchema, RunIdSchema, TimestampSchema } from '../schemas/common.js';
+import { EventIdSchema, RunIdSchema, TimestampSchema, AgentIdSchema, StrategyIdSchema } from '../schemas/common.js';
 import { AgentDecisionSchema } from '../schemas/agent.js';
 import { NormalizedMarketEventSchema } from '../schemas/market.js';
 import { PaperFillSchema, PaperOrderSchema, PnLSnapshotSchema, PositionSchema } from '../schemas/broker.js';
@@ -24,6 +24,7 @@ export const SimEventTypeSchema = z.enum([
   'POSITION_UPDATED',
   'PNL_SNAPSHOT_CREATED',
   'STRATEGY_SWITCHED',
+  'STRATEGY_SWITCH_REQUESTED',
   'RATE_LIMIT_DELAYED',
   'FEED_DISCONNECTED',
   'FEED_RECONNECTED',
@@ -102,6 +103,15 @@ export const StrategySwitchedPayloadSchema = z.object({
 });
 export type StrategySwitchedPayload = z.infer<typeof StrategySwitchedPayloadSchema>;
 
+export const StrategySwitchRequestedPayloadSchema = z.object({
+  runId: RunIdSchema,
+  agentId: AgentIdSchema,
+  fromStrategyId: StrategyIdSchema,
+  toStrategyId: StrategyIdSchema,
+  timestamp: TimestampSchema,
+});
+export type StrategySwitchRequestedPayload = z.infer<typeof StrategySwitchRequestedPayloadSchema>;
+
 export const RateLimitDelayedPayloadSchema = z.object({
   provider: z.string().min(1),
   operation: z.string().min(1),
@@ -118,3 +128,32 @@ export const FeedConnectionPayloadSchema = z.object({
   reconnectAttempt: z.number().int().nonnegative().optional(),
 });
 export type FeedConnectionPayload = z.infer<typeof FeedConnectionPayloadSchema>;
+
+// Per-type payload dispatch map for replay validation and typed parsing.
+// Broker event types (PAPER_ORDER_*, POSITION_UPDATED, PNL_SNAPSHOT_CREATED) use
+// z.record(z.string(), z.unknown()) because appendBrokerEvent stores the full BrokerEventPayload
+// wrapper { type, order/fill/snapshot/riskEvent }, not the inner domain object.
+// Tight wrapper schemas are a follow-up for a future phase.
+export const SimEventPayloadSchemas = {
+  MARKET_TICK_RECEIVED: MarketTickPayloadSchema,
+  ORDERBOOK_UPDATED: z.record(z.string(), z.unknown()),
+  BAR_CLOSED: z.record(z.string(), z.unknown()),
+  STRATEGY_SIGNAL_CREATED: StrategySignalPayloadSchema,
+  AGENT_DECISION_REQUESTED: AgentDecisionRequestedPayloadSchema,
+  AGENT_DECISION_RECEIVED: AgentDecisionReceivedPayloadSchema,
+  AGENT_DECISION_INVALID: AgentDecisionInvalidPayloadSchema,
+  RISK_CHECK_PASSED: RiskCheckPayloadSchema,
+  RISK_CHECK_REJECTED: RiskCheckPayloadSchema,
+  PAPER_ORDER_CREATED: z.record(z.string(), z.unknown()),
+  PAPER_ORDER_AMENDED: z.record(z.string(), z.unknown()),
+  PAPER_ORDER_CANCELLED: z.record(z.string(), z.unknown()),
+  PAPER_ORDER_REJECTED: z.record(z.string(), z.unknown()),
+  PAPER_ORDER_FILLED: z.record(z.string(), z.unknown()),
+  POSITION_UPDATED: z.record(z.string(), z.unknown()),
+  PNL_SNAPSHOT_CREATED: z.record(z.string(), z.unknown()),
+  STRATEGY_SWITCHED: StrategySwitchedPayloadSchema,
+  STRATEGY_SWITCH_REQUESTED: StrategySwitchRequestedPayloadSchema,
+  RATE_LIMIT_DELAYED: RateLimitDelayedPayloadSchema,
+  FEED_DISCONNECTED: FeedConnectionPayloadSchema,
+  FEED_RECONNECTED: FeedConnectionPayloadSchema,
+} as const satisfies Record<SimEventType, z.ZodTypeAny>;
