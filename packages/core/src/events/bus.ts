@@ -8,21 +8,39 @@ export interface BusEvents {
 }
 
 export class SimEventBus extends EventEmitter<BusEvents> {
-  private _seq = 0;
+  /**
+   * In-memory sequence counter for ephemeral (non-persisted) event ordering.
+   * This is NOT the authoritative sequence — sequence numbers for persisted
+   * events are assigned by appendEventPayload in @arena/db, which derives
+   * them from MAX(seq)+1 at write time. Do not use ephemeralSeq() to assign
+   * DB-level sequences. (WR-07)
+   */
+  private _ephemeralSeq = 0;
 
   append(event: SimEvent): void {
     this.emit('event', event);
   }
 
-  nextSeq(): number {
-    return this._seq++;
+  /**
+   * Returns an incrementing counter for ephemeral in-memory event ordering.
+   * Not connected to the persisted DB sequence — use only for non-persisted flows.
+   * Renamed from nextSeq() to clarify scope. (WR-07)
+   */
+  ephemeralSeq(): number {
+    return this._ephemeralSeq++;
   }
 
-  // Route event to a type-specific listener in addition to the generic one.
-  onEventType(type: SimEventType, listener: (event: SimEvent) => void): this {
-    return this.on('event', (ev) => {
+  /**
+   * Registers a listener that fires only for events of the given type.
+   * Returns a disposer function — call it to remove the listener.
+   * Unlike the previous implementation, this does not leak anonymous wrappers. (CR-03)
+   */
+  onEventType(type: SimEventType, listener: (event: SimEvent) => void): () => void {
+    const wrapper = (ev: SimEvent) => {
       if (ev.type === type) listener(ev);
-    });
+    };
+    this.on('event', wrapper);
+    return () => this.off('event', wrapper);
   }
 }
 
