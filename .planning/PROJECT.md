@@ -31,11 +31,11 @@ An AI agent you can watch make paper trades in real time — the full loop from 
 
 - [ ] **API-01**: Migrate `apps/api` from raw Node `http.createServer` to Fastify with versioned `/v1/` routes, Zod-to-JSON-Schema validation, preValidation hooks, and typed route generics
 - [ ] **API-02**: Register `@fastify/websocket` and migrate WebSocket telemetry endpoint to Fastify plugin with inbound Zod message validation
-- [ ] **API-03**: Fix `ordersThisMinute` and `strategySwitchesThisHour` counters — derive from event log (currently hardcoded 0, bypassing two risk rules)
-- [ ] **API-04**: Replace `JSON.parse(...) as T` event payload casts with per-event-type Zod `safeParse` schemas from `packages/core`
-- [ ] **TEL-01**: Implement `packages/telemetry` — shared Pino root logger with redaction, child-logger helpers, and OpenTelemetry naming constants
+- [x] **API-03**: Fix `ordersThisMinute` and `strategySwitchesThisHour` counters — derive from event log (currently hardcoded 0, bypassing two risk rules) — *Validated in Phase 1: Foundation*
+- [x] **API-04**: Replace `JSON.parse(...) as T` event payload casts with per-event-type Zod `safeParse` schemas from `packages/core` — *Validated in Phase 1: Foundation*
+- [x] **TEL-01**: Implement `packages/telemetry` — shared Pino root logger with redaction, child-logger helpers, and OpenTelemetry naming constants — *Validated in Phase 1: Foundation*
 - [ ] **AGENT-01**: Implement OpenRouter LLM agent in `packages/agents` — OpenAI SDK → `https://openrouter.ai/api/v1`, Zod structured output, Bottleneck/p-retry wrapping
-- [ ] **AGENT-02**: Add `onError` to `MarketFeedAdapter` interface in `packages/core/src/interfaces.ts` (removes unsafe cast in worker)
+- [x] **AGENT-02**: Add `onError` to `MarketFeedAdapter` interface in `packages/core/src/interfaces.ts` (removes unsafe cast in worker) — *Validated in Phase 1: Foundation*
 - [ ] **PROJ-01**: Implement materialized read-model projections in `packages/db/src/projections/` for positions, P&L, order history, and agent telemetry (replace full-log scan in buildTelemetry)
 - [ ] **WEB-01**: Migrate `apps/web` from vanilla DOM script to React + Vite + Tailwind per `react-vite-tailwind.md`
 - [ ] **WEB-02**: Price chart panel — Lightweight Charts candlestick/line series streaming live from Fastify WebSocket feed
@@ -111,4 +111,4 @@ This document evolves at phase transitions and milestone boundaries.
 4. Update Context with current state
 
 ---
-*Last updated: 2026-06-01 after initialization*
+*Last updated: 2026-06-03 — Phase 1 (Foundation) complete*
